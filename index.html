@@ -81,6 +81,26 @@
     .row-editor{background:#0f1933}
     .row-editor td{position:sticky; top:32px; background:#0f1933; border-bottom:1px solid #233056;}
 
+    /* Collapsible (details/summary) */
+    details.collapser{
+      border:1px solid #243056; border-radius:10px; background:#0e1526; padding:10px 12px; margin:10px 0;
+    }
+    details.collapser > summary{
+      cursor:pointer; list-style:none; font-weight:700; color:#cfe0ff; display:flex; align-items:center; gap:8px;
+    }
+    details.collapser > summary::before{
+      content:"▾"; display:inline-block; transform:rotate(0deg); transition:transform .15s ease;
+    }
+    details.collapser[open] > summary::before{ transform:rotate(180deg); }
+    .collapser-body{ margin-top:10px }
+
+    /* Control rows */
+    .ctl{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+    .ctl .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+    .ctl label{font-size:12px; color:#b7c7ea; min-width:110px}
+    .ctl input[type="color"]{background:#0e1526;border:1px solid #243056;border-radius:8px;width:44px;height:30px;padding:0}
+    .ctl input[type="number"]{background:#0e1526;border:1px solid #243056;color:#eaf1ff;border-radius:8px;padding:6px 8px;width:90px}
+
     /* Responsive */
     @media (max-width: 1024px){
       .app{grid-template-columns: 380px 1fr;}
@@ -96,6 +116,7 @@
       #map{min-height:400px}
       .bar{flex-direction:column; align-items:stretch}
       .bar-right{justify-content:space-between}
+      .ctl{grid-template-columns: 1fr}
     }
     @media (max-width: 420px){
       #map{min-height:360px}
@@ -167,19 +188,57 @@
 
       <div class="divider"></div>
 
-      <h2>อัปโหลดจุดจาก Excel/CSV</h2>
+      <!-- ========== อัปโหลดจุดจาก Excel/CSV (ซ่อน/แสดง) ========== -->
+      <details class="collapser" id="uploadSection" open>
+        <summary>อัปโหลดจุดจาก Excel/CSV</summary>
+        <div class="collapser-body">
+          <label class="small" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span>คอลัมน์ A = lat, คอลัมน์ B = lon</span>
+            <span style="display:inline-flex;align-items:center;gap:6px">
+              <input id="hasHeader" type="checkbox" checked />
+              <span>แถวแรกเป็น header</span>
+            </span>
+          </label>
 
-      <!-- ย้าย checkbox “แถวแรกเป็น header” มาอยู่แทนข้อความวงเล็บ -->
-      <label class="small" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span>คอลัมน์ A = lat, คอลัมน์ B = lon</span>
-        <span style="display:inline-flex;align-items:center;gap:6px">
-          <input id="hasHeader" type="checkbox" checked />
-          <span>แถวแรกเป็น header</span>
-        </span>
-      </label>
+          <input id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
+          <div id="excelPreview" class="small" style="margin-top:6px;color:#b8c7ea"></div>
+        </div>
+      </details>
 
-      <input id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
-      <div id="excelPreview" class="small" style="margin-top:6px;color:#b8c7ea"></div>
+      <!-- ========== ตัวเลือกสไตล์แผนที่ (อยู่ระหว่าง อัปโหลด ↔ Export) ========== -->
+      <details class="collapser" id="styleSection" open>
+        <summary>ตัวเลือกสไตล์แผนที่ (จุด / ขอบเขตที่เลือก / ขอบเขตประเทศ)</summary>
+        <div class="collapser-body">
+          <!-- Controls laid out in two columns (stack on mobile) -->
+          <div class="ctl">
+            <!-- จุด (Markers) -->
+            <div class="row">
+              <label>สีจุด</label>
+              <input type="color" id="pointColor" value="#1e90ff">
+              <label>ขนาดจุด</label>
+              <input type="number" id="pointRadius" min="1" max="20" step="1" value="5">
+            </div>
+
+            <!-- ตำบลที่เลือก (Selected Polys) -->
+            <div class="row">
+              <label>สีเส้นตำบล</label>
+              <input type="color" id="polyColor" value="#888888">
+              <label>ความหนาเส้น</label>
+              <input type="number" id="polyWeight" min="1" max="10" step="1" value="2">
+            </div>
+
+            <!-- ขอบเขตประเทศ -->
+            <div class="row">
+              <label>สีเส้นประเทศ</label>
+              <input type="color" id="borderColor" value="#000000">
+              <label>ความหนาเส้น</label>
+              <input type="number" id="borderWeight" min="1" max="10" step="1" value="2">
+            </div>
+          </div>
+
+          <!-- ซ่อน/แสดงชุดนี้เพิ่มเติมก็ใช้ปุ่ม summary ได้เลย -->
+        </div>
+      </details>
 
       <div class="divider"></div>
 
@@ -236,8 +295,8 @@
     setTimeout(()=>map.invalidateSize(true), 300);
 
     // Layers
-    const thBorderLayer = L.geoJSON(null,{style:{color:'#000', weight:2, fill:false}}).addTo(map); // เส้นขอบไทย (ดำ)
-    const selectedPolysLayer = L.geoJSON(null,{style:{color:'#888', weight:2, fill:false}}).addTo(map); // เส้นสีเทาของเขตที่เลือก
+    const thBorderLayer = L.geoJSON(null,{style:{color:'#000000', weight:2, fill:false}}).addTo(map); // เส้นขอบไทย
+    const selectedPolysLayer = L.geoJSON(null,{style:{color:'#888888', weight:2, fill:false}}).addTo(map); // เส้นสีเทาของเขตที่เลือก
 
     const cluster = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
     map.addLayer(cluster);
@@ -252,6 +311,14 @@
       },
       {collapsed:false, position:'topright'}
     ).addTo(map);
+
+    // ===== Style State (defaults match existing) =====
+    let pointColor = '#1e90ff';
+    let pointRadius = 5;
+    let polyColor = '#888888';
+    let polyWeight = 2;
+    let borderColor = '#000000';
+    let borderWeight = 2;
 
     // ===== State =====
     let points=[]; let nextId=1;
@@ -270,14 +337,14 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="t-act">
-            <button class="btn-icon danger" data-del="${p.id}" title="ลบ">✕</button>
+            <button class="btn-icon danger" data-del="\${p.id}" title="ลบ">✕</button>
           </td>
-          <td class="t-num"><span class="pill">${idx+1}</span></td>
-          <td><input class="celled" type="number" step="any" data-edit-lat="${p.id}" value="${formatLatLon(p.lat)}"></td>
-          <td><input class="celled" type="number" step="any" data-edit-lon="${p.id}" value="${formatLatLon(p.lon)}"></td>
-          <td>${p.props?.tambon ?? ''}</td>
-          <td>${p.props?.amphoe ?? ''}</td>
-          <td>${p.props?.changwat ?? ''}</td>`;
+          <td class="t-num"><span class="pill">\${idx+1}</span></td>
+          <td><input class="celled" type="number" step="any" data-edit-lat="\${p.id}" value="\${formatLatLon(p.lat)}"></td>
+          <td><input class="celled" type="number" step="any" data-edit-lon="\${p.id}" value="\${formatLatLon(p.lon)}"></td>
+          <td>\${p.props?.tambon ?? ''}</td>
+          <td>\${p.props?.amphoe ?? ''}</td>
+          <td>\${p.props?.changwat ?? ''}</td>`;
         tb.appendChild(tr);
       });
 
@@ -308,19 +375,24 @@
 
     function popupHtmlForPoint(p){
       const props = p.props||{};
-      return `Lat: ${formatLatLon(p.lat)}<br>
-              Lon: ${formatLatLon(p.lon)}
-              ${(props.tambon||props.amphoe||props.changwat)? `<br><b>ตำบล</b>: ${props.tambon ?? '-'}<br><b>อำเภอ</b>: ${props.amphoe ?? '-'}<br><b>จังหวัด</b>: ${props.changwat ?? '-'}`:''}
+      return `Lat: \${formatLatLon(p.lat)}<br>
+              Lon: \${formatLatLon(p.lon)}
+              \${(props.tambon||props.amphoe||props.changwat)? `<br><b>ตำบล</b>: \${props.tambon ?? '-'}<br><b>อำเภอ</b>: \${props.amphoe ?? '-'}<br><b>จังหวัด</b>: \${props.changwat ?? '-'}`:''}
               <div style="margin-top:8px">
-                <button class="btn btn-danger" data-del-marker="${p.id}">ลบจุดนี้</button>
+                <button class="btn btn-danger" data-del-marker="\${p.id}">ลบจุดนี้</button>
               </div>`;
+    }
+
+    function applyMarkerStyle(m){
+      if (!m) return;
+      m.setStyle({radius: pointRadius, color: pointColor, fillColor: pointColor, fillOpacity:0.9, weight:1});
     }
 
     function refreshMarkers(){
       cluster.clearLayers();
       points.forEach(p => {
         if (!p.marker){
-          const m = L.circleMarker([p.lat, p.lon], {radius:5, weight:1, color:'#1e90ff', fillColor:'#1e90ff', fillOpacity:0.9});
+          const m = L.circleMarker([p.lat, p.lon], {radius:pointRadius, weight:1, color:pointColor, fillColor:pointColor, fillOpacity:0.9});
           m.bindPopup(popupHtmlForPoint(p));
           m.on('popupopen', (ev)=>{
             const btn = ev.popup._contentNode.querySelector('button[data-del-marker]');
@@ -330,6 +402,7 @@
         } else {
           p.marker.setLatLng([p.lat, p.lon]);
           p.marker.setPopupContent(popupHtmlForPoint(p));
+          applyMarkerStyle(p.marker);
         }
         cluster.addLayer(p.marker);
       });
@@ -400,6 +473,7 @@
       }
       if (feats.length){
         selectedPolysLayer.addData({type:'FeatureCollection', features:feats});
+        selectedPolysLayer.setStyle({color: polyColor, weight: polyWeight, fill:false});
       }
     }
 
@@ -428,7 +502,7 @@
       if (!props){ toast('อยู่นอกขอบเขต GeoJSON — ยกเลิก'); renderTable(); return; }
       const {__feat, ...onlyProps} = props;
       p.lat = lat; p.lon = lon; p.props = onlyProps; p.props.__feat = __feat;
-      if (p.marker) p.marker.setLatLng([p.lat, p.lon]);
+      if (p.marker) { p.marker.setLatLng([p.lat, p.lon]); applyMarkerStyle(p.marker); }
       refreshMarkers();
     }
 
@@ -472,7 +546,7 @@
         }
       });
       refreshMarkers();
-      toast(`Join ใหม่: ตรง ${hit} / ไม่พบ ${miss}`);
+      toast(`Join ใหม่: ตรง \${hit} / ไม่พบ \${miss}`);
     });
 
     // Editor row (+)
@@ -490,7 +564,7 @@
       tempAddMarker = L.marker(e.latlng, {opacity:0.9}).addTo(map);
       const lat = e.latlng.lat, lon = e.latlng.lng;
       const html = `
-        <div><b>ยืนยันเพิ่มจุดนี้</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
+        <div><b>ยืนยันเพิ่มจุดนี้</b><br>Lat: \${lat.toFixed(6)}<br>Lon: \${lon.toFixed(6)}</div>
         <div style="margin-top:8px"><button class="btn" id="confirmAddBtn">ยืนยันเพิ่มจุด</button></div>`;
       tempAddMarker.bindPopup(html);
       tempAddMarker.once('popupopen', ()=>{
@@ -505,7 +579,7 @@
       tempAddMarker.openPopup();
     });
 
-    // Excel/CSV upload
+    // ====== Upload (SheetJS) ======
     $('excelInput').addEventListener('change', async (ev)=>{
       const file = ev.target.files && ev.target.files[0];
       if (!file) return;
@@ -526,14 +600,14 @@
           addPointWithChecks(lat, lon);
           if (points.length>before) added++; else skipped++;
         });
-        $('excelPreview').textContent = `เพิ่มจากไฟล์: ${added.toLocaleString()} จุด (ข้าม ${skipped.toLocaleString()} จุด)`;
-        toast(`เพิ่มจุดจากไฟล์: ${added.toLocaleString()} จุด, ข้าม ${skipped.toLocaleString()} จุด`);
+        $('excelPreview').textContent = `เพิ่มจากไฟล์: \${added.toLocaleString()} จุด (ข้าม \${skipped.toLocaleString()} จุด)`;
+        toast(`เพิ่มจุดจากไฟล์: \${added.toLocaleString()} จุด, ข้าม \${skipped.toLocaleString()} จุด`);
       }catch(err){
         console.error(err); toast('อ่านไฟล์ล้มเหลว: ' + (err?.message||err));
       }
     });
 
-    // Exports
+    // ====== Export ======
     function exportCollectRows(){
       const rows = [];
       const body = document.getElementById('pointsTableBody');
@@ -595,7 +669,36 @@
       if (!gj || gj.type!=='FeatureCollection' || !Array.isArray(gj.features) || !gj.features.length) throw new Error('th_border ไม่ถูกต้อง');
       thBorderPolys = gj; thBBoxes = thBorderPolys.features.map(f=>turf.bbox(f));
       thBorderLayer.addData(thBorderPolys); // draw black outline only
+      thBorderLayer.setStyle({color: borderColor, weight: borderWeight, fill:false});
     }
+
+    // ===== Style control bindings =====
+    $('pointColor').addEventListener('input', (e)=>{
+      pointColor = e.target.value || '#1e90ff';
+      points.forEach(p=> p.marker && applyMarkerStyle(p.marker));
+    });
+    $('pointRadius').addEventListener('change', (e)=>{
+      const v = parseInt(e.target.value,10);
+      if (isFinite(v) && v>0){ pointRadius = v; points.forEach(p=> p.marker && applyMarkerStyle(p.marker)); }
+    });
+
+    $('polyColor').addEventListener('input', (e)=>{
+      polyColor = e.target.value || '#888888';
+      selectedPolysLayer.setStyle({color: polyColor, weight: polyWeight, fill:false});
+    });
+    $('polyWeight').addEventListener('change', (e)=>{
+      const v = parseInt(e.target.value,10);
+      if (isFinite(v) && v>0){ polyWeight = v; selectedPolysLayer.setStyle({color: polyColor, weight: polyWeight, fill:false}); }
+    });
+
+    $('borderColor').addEventListener('input', (e)=>{
+      borderColor = e.target.value || '#000000';
+      thBorderLayer.setStyle({color: borderColor, weight: borderWeight, fill:false});
+    });
+    $('borderWeight').addEventListener('change', (e)=>{
+      const v = parseInt(e.target.value,10);
+      if (isFinite(v) && v>0){ borderWeight = v; thBorderLayer.setStyle({color: borderColor, weight: borderWeight, fill:false}); }
+    });
 
     (async()=>{
       try{
