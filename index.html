@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Leaflet – TH Points • Responsive + Icon Actions</title>
+  <title>Leaflet – TH Points • Selected Polygons + Satellite + Responsive</title>
 
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -40,10 +40,8 @@
     .panel-map{grid-area:right}
     #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden}
 
-    /* Typography & UI */
     h1{font-size:18px;margin:.2rem 0 10px;font-weight:700}
     h2{font-size:14px;margin:16px 0 8px;color:var(--muted);font-weight:700;letter-spacing:.2px}
-    label{font-size:13px;color:#cfd6e6;margin-bottom:6px;display:block}
 
     .btn{background:linear-gradient(180deg,#1e90ff,#1475d6);border:none;color:white;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:700}
     .btn:disabled{opacity:.5;cursor:not-allowed}
@@ -52,15 +50,23 @@
     .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;border:1px solid #2a3354;background:#0e162b;color:#d6e5ff;font-size:18px;line-height:1}
     .btn-icon.danger{border-color:#5a2a2a;color:#ffcccc}
 
-    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .badge{display:inline-flex;align-items:center;gap:6px;background:#0f1a33;border:1px solid #233056;color:#b7c3de;padding:4px 8px;border-radius:999px;font-size:11px}
     .dot{inline-size:10px;block-size:10px;border-radius:50%;background:#1e90ff;border:1px solid #fff3}
-    .poly{inline-size:14px;block-size:10px;border:1px solid #64ffda;background:linear-gradient(0deg,#64ffda22,#64ffda22)}
+    .poly{inline-size:14px;block-size:10px;border:1px solid #888;background:transparent}
+
     .divider{height:1px;background:#243056;margin:10px 0}
     .small{font-size:11px;color:#9fb0d0}
     .note{font-size:12px;color:#a9b0c0}
     .toast{position:fixed;right:16px;bottom:16px;background:#111a2e;border:1px solid #233056;padding:10px 14px;border-radius:10px;color:#dbe6ff;box-shadow:0 6px 24px rgba(0,0,0,.35);z-index:9999}
+
+    /* Header bar for table controls */
+    .bar{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; margin:6px 0 8px;
+    }
+    .bar-left{display:flex;align-items:center;gap:10px}
+    .bar-right{display:flex;align-items:center;gap:8px}
 
     /* Table */
     .tableWrap{min-height:220px;max-height:360px;overflow:auto;border:1px solid #243056;border-radius:10px;background:#0e1526}
@@ -88,6 +94,8 @@
           "left";
       }
       #map{min-height:400px}
+      .bar{flex-direction:column; align-items:stretch}
+      .bar-right{justify-content:space-between}
     }
     @media (max-width: 420px){
       #map{min-height:360px}
@@ -104,23 +112,25 @@
 
     <!-- Controls & Table -->
     <div class="panel panel-left">
-      <h1>Thailand Map • จำกัดพื้นที่ + เส้นขอบประเทศ</h1>
+      <h1>Thailand Map • ขอบเขตที่เลือก + Satellite</h1>
       <div class="legend">
         <span class="badge"><span class="dot"></span> จุด (Lat/Lon)</span>
-        <span class="badge"><span class="poly"></span> ใช้ขอบเขตจาก subdistricts.geojson (ไม่แสดงบนแผนที่)</span>
-      </div>
-
-      <h2>โหมดเพิ่มจุดจากแผนที่</h2>
-      <div class="small">กด “เริ่มโหมดเพิ่มจากแผนที่” → คลิกตำแหน่ง → ป็อปอัป “ยืนยันเพิ่มจุด”</div>
-      <div class="actions" style="margin-top:6px">
-        <button class="btn" id="toggleAddModeBtn">เริ่มโหมดเพิ่มจากแผนที่</button>
-        <button class="btn btn-outline" id="clearPointsBtn">ล้างจุดทั้งหมด</button>
-        <button class="btn btn-outline" id="rejoinBtn" title="คำนวณใหม่จาก polygon">Join ใหม่</button>
+        <span class="badge"><span class="poly"></span> แสดงเส้นตำบลเฉพาะที่เลือก</span>
       </div>
 
       <div class="divider"></div>
 
-      <h2>ตารางจุด</h2>
+      <!-- Table header bar with buttons in-line -->
+      <div class="bar">
+        <div class="bar-left">
+          <h2 style="margin:0">ตารางจุด</h2>
+          <button class="btn btn-outline" id="rejoinBtn" title="คำนวณใหม่จาก polygon">Join ใหม่</button>
+        </div>
+        <div class="bar-right">
+          <button class="btn" id="toggleAddModeBtn" title="เพิ่มจากแผนที่">เริ่มโหมดเพิ่มจากแผนที่</button>
+        </div>
+      </div>
+
       <div class="tableWrap">
         <table>
           <thead>
@@ -148,9 +158,15 @@
           </tbody>
         </table>
       </div>
-      <div class="countRow">
-        <span>จำนวนจุดทั้งหมด: <span id="pointCount">0</span></span>
-        <span class="note">แตะจุดบนแผนที่เพื่อลบได้</span>
+
+      <div class="countRow" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:8px;color:#9fb0d0;font-size:12px">
+        <div>
+          จำนวนจุดทั้งหมด: <span id="pointCount">0</span>
+          <span class="note"> — แตะจุดบนแผนที่เพื่อลบได้</span>
+        </div>
+        <div>
+          <button class="btn btn-outline" id="clearPointsBtn">ล้างจุดทั้งหมด</button>
+        </div>
       </div>
 
       <div class="divider"></div>
@@ -160,13 +176,13 @@
       <input id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
       <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
         <input id="hasHeader" type="checkbox" checked />
-        <label for="hasHeader" class="muted">แถวแรกเป็น header</label>
+        <label for="hasHeader" class="small">แถวแรกเป็น header</label>
       </div>
       <div id="excelPreview" class="small" style="margin-top:6px;color:#b8c7ea"></div>
 
       <div class="divider"></div>
 
-      <div class="actions" style="margin-top:6px">
+      <div class="actions" style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-outline" id="exportCsvBtn" disabled>Export CSV</button>
         <button class="btn btn-outline" id="exportXlsxBtn" disabled>Export Excel (.xlsx)</button>
         <button class="btn btn-outline" id="exportGeojsonBtn" disabled>Export GeoJSON</button>
@@ -193,7 +209,7 @@
   const FIELD_TAMBON   = 'tam_th';
   const FIELD_AMPHOE   = 'amp_th';
   const FIELD_CHANGWAT = 'pro_th';
-  const GEOJSON_PATH   = 'subdistricts.geojson';  // polygon ตำบล (ไม่แสดง)
+  const SUBD_PATH      = 'subdistricts.geojson';  // polygon ตำบล (ไม่แสดงทั้งหมด)
   const TH_BORDER_PATH = 'th_boundary.geojson';   // ขอบประเทศ (เส้นสีดำ)
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -202,17 +218,20 @@
     const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
     map.fitBounds(thBounds);
 
+    // Basemaps: OSM + Satellite (ตัด Humanitarian/Esri เดิมออกจากตัวเลือก)
     const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-    const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OSM, HOT'});
-    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri'});
-    L.control.layers({'OSM (default)':osmStd,'OSM Humanitarian':osmHot,'Esri Imagery':esriSat},{},{collapsed:false}).addTo(map);
+    const satellite = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {maxZoom:19, attribution:'Imagery © Esri'}
+    );
+    L.control.layers({'OSM':osmStd,'Satellite':satellite},{},{collapsed:false}).addTo(map);
     L.control.scale().addTo(map);
     setTimeout(()=>map.invalidateSize(true), 300);
 
-    // Border layer (black outline)
-    const thBorderLayer = L.geoJSON(null,{style:{color:'#000', weight:2, fill:false}}).addTo(map);
+    // Layers
+    const thBorderLayer = L.geoJSON(null,{style:{color:'#000', weight:2, fill:false}}).addTo(map); // เส้นขอบไทย (ดำ)
+    const selectedPolysLayer = L.geoJSON(null,{style:{color:'#888', weight:2, fill:false}}).addTo(map); // เส้นสีเทาของเขตที่เลือก
 
-    // Marker cluster
     const cluster = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
     map.addLayer(cluster);
 
@@ -303,6 +322,7 @@
       $('exportGeojsonBtn').disabled = !enable;
 
       renderTable();
+      renderSelectedPolys(); // แสดงเส้นตำบลเฉพาะที่มีจุด
     }
 
     // ===== Geometry tests =====
@@ -319,22 +339,51 @@
       return false;
     }
 
-    function findSubdistrictProps(lat, lon){
+    function findSubdistrictFeature(lat, lon){
       if (!subdistrictPolys) return null;
       const pt = turf.point([lon, lat]);
       for (let j=0;j<subdistrictPolys.features.length;j++){
         const bb = subdBBoxes[j];
         if (lon < bb[0] || lon > bb[2] || lat < bb[1] || lat > bb[3]) continue;
-        if (turf.booleanPointInPolygon(pt, subdistrictPolys.features[j], {ignoreBoundary:false})){
-          const prop = subdistrictPolys.features[j].properties || {};
-          return {
-            tambon:  prop[FIELD_TAMBON]   ?? null,
-            amphoe:  prop[FIELD_AMPHOE]   ?? null,
-            changwat:prop[FIELD_CHANGWAT] ?? null
-          };
+        const feat = subdistrictPolys.features[j];
+        if (turf.booleanPointInPolygon(pt, feat, {ignoreBoundary:false})){
+          return feat;
         }
       }
       return null;
+    }
+
+    function findSubdistrictProps(lat, lon){
+      const feat = findSubdistrictFeature(lat, lon);
+      if (!feat) return null;
+      const prop = feat.properties || {};
+      return {
+        tambon:  prop[FIELD_TAMBON]   ?? null,
+        amphoe:  prop[FIELD_AMPHOE]   ?? null,
+        changwat:prop[FIELD_CHANGWAT] ?? null,
+        __feat: feat
+      };
+    }
+
+    // ===== Render selected polygons (grey) =====
+    function renderSelectedPolys(){
+      selectedPolysLayer.clearLayers();
+      if (!points.length || !subdistrictPolys) return;
+      const used = new Set();
+      const feats = [];
+      for (const p of points){
+        const propFeat = p.props?.__feat;
+        if (!propFeat) continue;
+        // build a simple key to avoid duplicates
+        const key = JSON.stringify(propFeat.geometry);
+        if (!used.has(key)){
+          used.add(key);
+          feats.push(propFeat);
+        }
+      }
+      if (feats.length){
+        selectedPolysLayer.addData({type:'FeatureCollection', features:feats});
+      }
     }
 
     // ===== Add/Update/Delete with constraints =====
@@ -344,7 +393,10 @@
       if (!isInsideThailand(lat, lon)){ toast('พิกัดอยู่นอกประเทศไทย — ไม่สามารถเพิ่มจุดได้'); return; }
       const props = findSubdistrictProps(lat, lon);
       if (!props){ toast('พิกัดอยู่นอกขอบเขต GeoJSON — ไม่สามารถเพิ่มจุดได้'); return; }
-      const p = {id: nextId++, lat, lon, props};
+      const {__feat, ...onlyProps} = props;
+      const p = {id: nextId++, lat, lon, props: onlyProps};
+      // เก็บ reference ของ feature ไว้ภายใน (ไม่ใส่ลง props ตอน export)
+      p.props.__feat = __feat;
       points.push(p);
       refreshMarkers();
     }
@@ -358,7 +410,8 @@
       if (!isInsideThailand(lat, lon)){ toast('อยู่นอกประเทศไทย — ยกเลิก'); renderTable(); return; }
       const props = findSubdistrictProps(lat, lon);
       if (!props){ toast('อยู่นอกขอบเขต GeoJSON — ยกเลิก'); renderTable(); return; }
-      p.lat = lat; p.lon = lon; p.props = props;
+      const {__feat, ...onlyProps} = props;
+      p.lat = lat; p.lon = lon; p.props = onlyProps; p.props.__feat = __feat;
       if (p.marker) p.marker.setLatLng([p.lat, p.lon]);
       refreshMarkers();
     }
@@ -377,7 +430,7 @@
     function setAddMode(on){
       addMode = !!on;
       $('toggleAddModeBtn').textContent = addMode ? 'จบโหมดเพิ่มจากแผนที่' : 'เริ่มโหมดเพิ่มจากแผนที่';
-      if (addMode){ map.getContainer().classList.add('cursor-add'); toast('โหมดเพิ่ม: คลิกแผนที่แล้ว “ยืนยันเพิ่มจุด”'); }
+      if (addMode){ map.getContainer().classList.add('cursor-add'); toast('โหมดเพิ่ม: แตะแผนที่แล้ว “ยืนยันเพิ่มจุด”'); }
       else { map.getContainer().classList.remove('cursor-add'); }
       if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
     }
@@ -387,8 +440,19 @@
       if (!subdistrictPolys){ toast('ยังไม่มีขอบเขต'); return; }
       let hit=0, miss=0;
       points.forEach(p=>{
-        const props = findSubdistrictProps(p.lat, p.lon);
-        if (props){ p.props = props; hit++; } else { p.props = {tambon:null, amphoe:null, changwat:null}; miss++; }
+        const f = findSubdistrictFeature(p.lat, p.lon);
+        if (f){
+          const prop = f.properties||{};
+          p.props = {
+            tambon:  prop[FIELD_TAMBON]   ?? null,
+            amphoe:  prop[FIELD_AMPHOE]   ?? null,
+            changwat:prop[FIELD_CHANGWAT] ?? null,
+            __feat: f
+          };
+          hit++;
+        } else {
+          p.props = {tambon:null, amphoe:null, changwat:null}; miss++;
+        }
       });
       refreshMarkers();
       toast(`Join ใหม่: ตรง ${hit} / ไม่พบ ${miss}`);
@@ -498,7 +562,7 @@
     });
 
     // ===== Load data =====
-    async function loadSubdistricts(path=GEOJSON_PATH){
+    async function loadSubdistricts(path=SUBD_PATH){
       const res = await fetch(path, { cache: 'no-store' });
       if(!res.ok) throw new Error('subdistricts HTTP '+res.status);
       const gj = await res.json();
