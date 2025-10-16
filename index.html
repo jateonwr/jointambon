@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Leaflet – TH Points • Selected Polygons + Satellite + Responsive</title>
+  <title>Leaflet – TH Points • Layer Toggles</title>
 
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -24,51 +24,35 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
-    :root{--bg:#0b1020;--card:#10182b;--muted:#a9b0c0;--accent:#1e90ff;--danger:#e35b5b}
+    :root{--bg:#0b1020;--card:#10182b;--muted:#a9b0c0;--accent:#1e90ff}
     html,body{height:100%;margin:0;font-family:'Sarabun',system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
     body{background:#0b0f1a;color:#f3f6fb}
 
-    /* Layout */
-    .app{
-      display:grid;
-      grid-template-columns: 460px 1fr;
-      grid-template-areas: "left right";
-      gap:14px; height:100%; padding:14px; box-sizing:border-box;
-    }
+    .app{display:grid;grid-template-columns:460px 1fr;gap:14px;height:100%;padding:14px;box-sizing:border-box}
     .panel{background:var(--card);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);padding:14px;display:flex;flex-direction:column;min-height:0}
-    .panel-left{grid-area:left; min-width:0}
-    .panel-map{grid-area:right}
+    .panel-left{min-width:0}
     #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden}
 
     h1{font-size:18px;margin:.2rem 0 10px;font-weight:700}
-    h2{font-size:14px;margin:16px 0 8px;color:var(--muted);font-weight:700;letter-spacing:.2px}
-
+    h2{font-size:14px;margin:16px 0 8px;color:var(--muted);font-weight:700}
     .btn{background:linear-gradient(180deg,#1e90ff,#1475d6);border:none;color:white;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:700}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
     .btn-outline{background:transparent;border:1px solid #2a3354;color:#d6e5ff}
-    .btn-danger{background:transparent;border:1px solid #703a3a;color:#ffbcbc}
-    .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;border:1px solid #2a3354;background:#0e162b;color:#d6e5ff;font-size:18px;line-height:1}
+    .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;border:1px solid #2a3354;background:#0e162b;color:#d6e5ff;font-size:18px}
     .btn-icon.danger{border-color:#5a2a2a;color:#ffcccc}
 
     .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .badge{display:inline-flex;align-items:center;gap:6px;background:#0f1a33;border:1px solid #233056;color:#b7c3de;padding:4px 8px;border-radius:999px;font-size:11px}
     .dot{inline-size:10px;block-size:10px;border-radius:50%;background:#1e90ff;border:1px solid #fff3}
     .poly{inline-size:14px;block-size:10px;border:1px solid #888;background:transparent}
-
     .divider{height:1px;background:#243056;margin:10px 0}
     .small{font-size:11px;color:#9fb0d0}
     .note{font-size:12px;color:#a9b0c0}
     .toast{position:fixed;right:16px;bottom:16px;background:#111a2e;border:1px solid #233056;padding:10px 14px;border-radius:10px;color:#dbe6ff;box-shadow:0 6px 24px rgba(0,0,0,.35);z-index:9999}
 
-    /* Header bar for table controls */
-    .bar{
-      display:flex; align-items:center; justify-content:space-between;
-      gap:10px; margin:6px 0 8px;
-    }
+    .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 8px}
     .bar-left{display:flex;align-items:center;gap:10px}
     .bar-right{display:flex;align-items:center;gap:8px}
 
-    /* Table */
     .tableWrap{min-height:220px;max-height:360px;overflow:auto;border:1px solid #243056;border-radius:10px;background:#0e1526}
     table{width:100%;border-collapse:collapse;font-size:12.5px}
     thead th{position:sticky;top:0;background:#101a34;color:#e8f0ff;border-bottom:1px solid #243056;padding:8px;font-weight:700;text-align:left}
@@ -79,22 +63,16 @@
     .pill{display:inline-block;padding:2px 6px;border-radius:999px;border:1px solid #2b3a63;background:#0d1833;font-size:11px}
     input[type="number"].celled{width:110px;background:#0e1526;border:1px solid #1f2942;color:#eaf1ff;padding:6px 8px;border-radius:8px;outline:none}
     .row-editor{background:#0f1933}
-    .row-editor td{position:sticky; top:32px; background:#0f1933; border-bottom:1px solid #233056;}
+    .row-editor td{position:sticky;top:32px;background:#0f1933;border-bottom:1px solid #233056}
 
-    /* Responsive */
     @media (max-width: 1024px){
-      .app{grid-template-columns: 380px 1fr;}
+      .app{grid-template-columns:380px 1fr}
       #map{min-height:520px}
     }
     @media (max-width: 768px){
-      .app{
-        grid-template-columns: 1fr;
-        grid-template-areas:
-          "right"
-          "left";
-      }
+      .app{grid-template-columns:1fr;grid-template-areas:"right""left"}
       #map{min-height:400px}
-      .bar{flex-direction:column; align-items:stretch}
+      .bar{flex-direction:column;align-items:stretch}
       .bar-right{justify-content:space-between}
     }
     @media (max-width: 420px){
@@ -107,20 +85,19 @@
 </head>
 <body>
   <div class="app">
-    <!-- Map FIRST on mobile -->
-    <div id="map" class="panel panel-map"></div>
+    <!-- Map -->
+    <div id="map" class="panel"></div>
 
     <!-- Controls & Table -->
     <div class="panel panel-left">
-      <h1>Thailand Map • ขอบเขตที่เลือก + Satellite</h1>
+      <h1>Thailand Map • Layer Toggles</h1>
       <div class="legend">
         <span class="badge"><span class="dot"></span> จุด (Lat/Lon)</span>
-        <span class="badge"><span class="poly"></span> แสดงเส้นตำบลเฉพาะที่เลือก</span>
+        <span class="badge"><span class="poly"></span> เส้นตำบลที่เลือก/ทั้งหมด</span>
       </div>
 
       <div class="divider"></div>
 
-      <!-- Table header bar with buttons in-line -->
       <div class="bar">
         <div class="bar-left">
           <h2 style="margin:0">ตารางจุด</h2>
@@ -145,11 +122,8 @@
             </tr>
           </thead>
           <tbody id="pointsTableBody">
-            <!-- Editor row (new point) -->
             <tr class="row-editor">
-              <td class="t-act">
-                <button class="btn-icon" id="addNewRowBtn" title="เพิ่มแถว">+</button>
-              </td>
+              <td class="t-act"><button class="btn-icon" id="addNewRowBtn" title="เพิ่มแถว">+</button></td>
               <td class="t-num"><span class="pill">ใหม่</span></td>
               <td><input id="newLat" class="celled" type="number" step="any" placeholder="13.7563"></td>
               <td><input id="newLon" class="celled" type="number" step="any" placeholder="100.5018"></td>
@@ -160,13 +134,8 @@
       </div>
 
       <div class="countRow" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:8px;color:#9fb0d0;font-size:12px">
-        <div>
-          จำนวนจุดทั้งหมด: <span id="pointCount">0</span>
-          <span class="note"> — แตะจุดบนแผนที่เพื่อลบได้</span>
-        </div>
-        <div>
-          <button class="btn btn-outline" id="clearPointsBtn">ล้างจุดทั้งหมด</button>
-        </div>
+        <div>จำนวนจุดทั้งหมด: <span id="pointCount">0</span> <span class="note">— แตะจุดบนแผนที่เพื่อลบได้</span></div>
+        <div><button class="btn btn-outline" id="clearPointsBtn">ล้างจุดทั้งหมด</button></div>
       </div>
 
       <div class="divider"></div>
@@ -182,15 +151,10 @@
 
       <div class="divider"></div>
 
-      <div class="actions" style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
+      <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-outline" id="exportCsvBtn" disabled>Export CSV</button>
         <button class="btn btn-outline" id="exportXlsxBtn" disabled>Export Excel (.xlsx)</button>
         <button class="btn btn-outline" id="exportGeojsonBtn" disabled>Export GeoJSON</button>
-      </div>
-
-      <div style="margin-top:auto">
-        <div class="divider"></div>
-        <div class="small">Static • GitHub Pages • Leaflet/Turf/SheetJS • Sarabun</div>
       </div>
     </div>
   </div>
@@ -198,62 +162,57 @@
   <div id="toast" class="toast" style="display:none"></div>
 
   <script>
-  // ===== Utilities =====
   const $ = (id) => document.getElementById(id);
   function toast(msg, ms=2200){ const el=$('toast'); el.textContent=msg; el.style.display='block'; setTimeout(()=>{el.style.display='none'}, ms); }
   function formatLatLon(n){ return (typeof n==='number' && isFinite(n)) ? n.toFixed(6) : n; }
   function toNumberMaybe(v){ if (typeof v==='number') return v; if (typeof v==='string'){ const s=v.trim().replace(/,/g,'.'); const f=parseFloat(s); return isNaN(f)?null:f;} return null; }
   function download(filename, data, mime='application/octet-stream'){ const blob=new Blob([data],{type:mime}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url); }
 
-  // ===== Constants =====
-  const FIELD_TAMBON   = 'tam_th';
-  const FIELD_AMPHOE   = 'amp_th';
-  const FIELD_CHANGWAT = 'pro_th';
-  const SUBD_PATH      = 'subdistricts.geojson';  // polygon ตำบล (ไม่แสดงทั้งหมด)
-  const TH_BORDER_PATH = 'th_boundary.geojson';   // ขอบประเทศ (เส้นสีดำ)
+  const FIELD_TAMBON='tam_th', FIELD_AMPHOE='amp_th', FIELD_CHANGWAT='pro_th';
+  const SUBD_PATH='subdistricts.geojson';    // ตำบล (ทั้งประเทศ)
+  const TH_BORDER_PATH='th_boundary.geojson';// ขอบประเทศ
 
   document.addEventListener('DOMContentLoaded', () => {
-    // ===== Map =====
+    // Map & basemaps
     const map = L.map('map', {preferCanvas:true});
     const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
     map.fitBounds(thBounds);
-
-    // Basemaps: OSM + Satellite (ตัด Humanitarian/Esri เดิมออกจากตัวเลือก)
-    const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-    const satellite = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {maxZoom:19, attribution:'Imagery © Esri'}
-    );
-    L.control.layers({'OSM':osmStd,'Satellite':satellite},{},{collapsed:false}).addTo(map);
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery © Esri'});
     L.control.scale().addTo(map);
-    setTimeout(()=>map.invalidateSize(true), 300);
+    setTimeout(()=>map.invalidateSize(true),300);
 
-    // Layers
-    const thBorderLayer = L.geoJSON(null,{style:{color:'#000', weight:2, fill:false}}).addTo(map); // เส้นขอบไทย (ดำ)
-    const selectedPolysLayer = L.geoJSON(null,{style:{color:'#888', weight:2, fill:false}}).addTo(map); // เส้นสีเทาของเขตที่เลือก
+    // Overlays (4 รายการตามที่ขอ)
+    const pointsLayer = L.markerClusterGroup({ disableClusteringAtZoom: 13 }).addTo(map);
+    const selectedPolysLayer = L.geoJSON(null,{style:{color:'#888',weight:2,fill:false}}).addTo(map);
+    const allSubdistrictsLayer = L.geoJSON(null,{style:{color:'#666',weight:1,fill:false}}); // ไม่ addTo เริ่มต้น
+    const thBorderLayer = L.geoJSON(null,{style:{color:'#000',weight:2,fill:false}}).addTo(map);
 
-    const cluster = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
-    map.addLayer(cluster);
+    // Layer control
+    const baseLayers = { 'OSM': osm, 'Satellite': satellite };
+    const overlayLayers = {
+      'จุด': pointsLayer,
+      'ขอบเขตตำบลที่เลือก': selectedPolysLayer,
+      'ขอบเขตตำบลทั้งหมด': allSubdistrictsLayer,
+      'ขอบเขตประเทศ': thBorderLayer
+    };
+    L.control.layers(baseLayers, overlayLayers, {collapsed:false}).addTo(map);
 
-    // ===== State =====
+    // State
     let points=[]; let nextId=1;
     let subdistrictPolys=null, subdBBoxes=[];
     let thBorderPolys=null, thBBoxes=[];
     let addMode=false; let tempAddMarker=null;
 
-    // ===== Table rendering =====
+    // ===== Table render =====
     function renderTable(){
-      const tb = $('pointsTableBody');
-      const editor = tb.querySelector('.row-editor');
-      tb.innerHTML = '';
-      tb.appendChild(editor);
-
+      const tb=$('pointsTableBody');
+      const editor=tb.querySelector('.row-editor');
+      tb.innerHTML=''; tb.appendChild(editor);
       points.forEach((p,idx)=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="t-act">
-            <button class="btn-icon danger" data-del="${p.id}" title="ลบ">✕</button>
-          </td>
+        const tr=document.createElement('tr');
+        tr.innerHTML=`
+          <td class="t-act"><button class="btn-icon danger" data-del="${p.id}" title="ลบ">✕</button></td>
           <td class="t-num"><span class="pill">${idx+1}</span></td>
           <td><input class="celled" type="number" step="any" data-edit-lat="${p.id}" value="${formatLatLon(p.lat)}"></td>
           <td><input class="celled" type="number" step="any" data-edit-lon="${p.id}" value="${formatLatLon(p.lon)}"></td>
@@ -262,322 +221,245 @@
           <td>${p.props?.changwat ?? ''}</td>`;
         tb.appendChild(tr);
       });
-
-      $('pointCount').textContent = points.length.toLocaleString();
-
-      // bind events
-      tb.querySelectorAll('button[data-del]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          const id = Number(btn.getAttribute('data-del'));
-          removePointById(id);
-        });
-      });
-      tb.querySelectorAll('input[data-edit-lat]').forEach(inp=>{
-        inp.addEventListener('change', ()=>{
-          const id = Number(inp.getAttribute('data-edit-lat'));
-          const val = toNumberMaybe(inp.value);
-          updatePointCoord(id, val, null);
-        });
-      });
-      tb.querySelectorAll('input[data-edit-lon]').forEach(inp=>{
-        inp.addEventListener('change', ()=>{
-          const id = Number(inp.getAttribute('data-edit-lon'));
-          const val = toNumberMaybe(inp.value);
-          updatePointCoord(id, null, val);
-        });
-      });
+      $('pointCount').textContent=points.length.toLocaleString();
+      tb.querySelectorAll('button[data-del]').forEach(btn=>btn.addEventListener('click',()=>removePointById(Number(btn.getAttribute('data-del')))));
+      tb.querySelectorAll('input[data-edit-lat]').forEach(inp=>inp.addEventListener('change',()=>updatePointCoord(Number(inp.getAttribute('data-edit-lat')), toNumberMaybe(inp.value), null)));
+      tb.querySelectorAll('input[data-edit-lon]').forEach(inp=>inp.addEventListener('change',()=>updatePointCoord(Number(inp.getAttribute('data-edit-lon')), null, toNumberMaybe(inp.value))));
     }
 
     function popupHtmlForPoint(p){
-      const props = p.props||{};
-      return `Lat: ${formatLatLon(p.lat)}<br>
-              Lon: ${formatLatLon(p.lon)}
-              ${(props.tambon||props.amphoe||props.changwat)? `<br><b>ตำบล</b>: ${props.tambon ?? '-'}<br><b>อำเภอ</b>: ${props.amphoe ?? '-'}<br><b>จังหวัด</b>: ${props.changwat ?? '-'}`:''}
-              <div style="margin-top:8px">
-                <button class="btn btn-danger" data-del-marker="${p.id}">ลบจุดนี้</button>
-              </div>`;
+      const props=p.props||{};
+      return `Lat: ${formatLatLon(p.lat)}<br>Lon: ${formatLatLon(p.lon)}${
+        (props.tambon||props.amphoe||props.changwat)
+          ? `<br><b>ตำบล</b>: ${props.tambon??'-'}<br><b>อำเภอ</b>: ${props.amphoe??'-'}<br><b>จังหวัด</b>: ${props.changwat??'-'}`
+          : ''}`;
     }
 
     function refreshMarkers(){
-      cluster.clearLayers();
-      points.forEach(p => {
-        if (!p.marker){
-          const m = L.circleMarker([p.lat, p.lon], {radius:5, weight:1, color:'#1e90ff', fillColor:'#1e90ff', fillOpacity:0.9});
+      pointsLayer.clearLayers();
+      points.forEach(p=>{
+        if(!p.marker){
+          const m=L.circleMarker([p.lat,p.lon],{radius:5,weight:1,color:'#1e90ff',fillColor:'#1e90ff',fillOpacity:0.9});
           m.bindPopup(popupHtmlForPoint(p));
-          m.on('popupopen', (ev)=>{
-            const btn = ev.popup._contentNode.querySelector('button[data-del-marker]');
-            if (btn) btn.addEventListener('click', ()=>{ removePointById(p.id); map.closePopup(); });
-          });
-          p.marker = m;
-        } else {
-          p.marker.setLatLng([p.lat, p.lon]);
-          p.marker.setPopupContent(popupHtmlForPoint(p));
+          p.marker=m;
+        }else{
+          p.marker.setLatLng([p.lat,p.lon]).setPopupContent(popupHtmlForPoint(p));
         }
-        cluster.addLayer(p.marker);
+        pointsLayer.addLayer(p.marker);
       });
-
-      const enable = points.length > 0;
-      $('exportCsvBtn').disabled = !enable;
-      $('exportXlsxBtn').disabled = !enable;
-      $('exportGeojsonBtn').disabled = !enable;
-
+      const enable=points.length>0;
+      $('exportCsvBtn').disabled=!enable;
+      $('exportXlsxBtn').disabled=!enable;
+      $('exportGeojsonBtn').disabled=!enable;
       renderTable();
-      renderSelectedPolys(); // แสดงเส้นตำบลเฉพาะที่มีจุด
+      renderSelectedPolys();
     }
 
-    // ===== Geometry tests =====
-    function isInsideThailand(lat, lon){
-      if (!thBorderPolys) return false;
-      const pt = turf.point([lon, lat]);
-      for (let j=0;j<thBorderPolys.features.length;j++){
-        const bb = thBBoxes[j];
-        if (lon < bb[0] || lon > bb[2] || lat < bb[1] || lat > bb[3]) continue;
-        if (turf.booleanPointInPolygon(pt, thBorderPolys.features[j], {ignoreBoundary:false})){
-          return true;
-        }
+    // ===== Geometry helpers =====
+    function isInsideThailand(lat,lon){
+      if(!thBorderPolys) return false;
+      const pt=turf.point([lon,lat]);
+      for(let j=0;j<thBorderPolys.features.length;j++){
+        const bb=thBBoxes[j];
+        if(lon<bb[0]||lon>bb[2]||lat<bb[1]||lat>bb[3]) continue;
+        if(turf.booleanPointInPolygon(pt, thBorderPolys.features[j], {ignoreBoundary:false})) return true;
       }
       return false;
     }
-
-    function findSubdistrictFeature(lat, lon){
-      if (!subdistrictPolys) return null;
-      const pt = turf.point([lon, lat]);
-      for (let j=0;j<subdistrictPolys.features.length;j++){
-        const bb = subdBBoxes[j];
-        if (lon < bb[0] || lon > bb[2] || lat < bb[1] || lat > bb[3]) continue;
-        const feat = subdistrictPolys.features[j];
-        if (turf.booleanPointInPolygon(pt, feat, {ignoreBoundary:false})){
-          return feat;
-        }
+    function findSubdistrictFeature(lat,lon){
+      if(!subdistrictPolys) return null;
+      const pt=turf.point([lon,lat]);
+      for(let j=0;j<subdistrictPolys.features.length;j++){
+        const bb=subdBBoxes[j];
+        if(lon<bb[0]||lon>bb[2]||lat<bb[1]||lat>bb[3]) continue;
+        const feat=subdistrictPolys.features[j];
+        if(turf.booleanPointInPolygon(pt, feat, {ignoreBoundary:false})) return feat;
       }
       return null;
     }
 
-    function findSubdistrictProps(lat, lon){
-      const feat = findSubdistrictFeature(lat, lon);
-      if (!feat) return null;
-      const prop = feat.properties || {};
-      return {
-        tambon:  prop[FIELD_TAMBON]   ?? null,
-        amphoe:  prop[FIELD_AMPHOE]   ?? null,
-        changwat:prop[FIELD_CHANGWAT] ?? null,
-        __feat: feat
-      };
-    }
-
-    // ===== Render selected polygons (grey) =====
+    // ===== Selected polygons (grey) =====
     function renderSelectedPolys(){
       selectedPolysLayer.clearLayers();
-      if (!points.length || !subdistrictPolys) return;
-      const used = new Set();
-      const feats = [];
-      for (const p of points){
-        const propFeat = p.props?.__feat;
-        if (!propFeat) continue;
-        // build a simple key to avoid duplicates
-        const key = JSON.stringify(propFeat.geometry);
-        if (!used.has(key)){
-          used.add(key);
-          feats.push(propFeat);
-        }
+      if(!points.length || !subdistrictPolys) return;
+      const used=new Set(), feats=[];
+      for(const p of points){
+        const f=p.__feat;
+        if(!f) continue;
+        const key = f.id || JSON.stringify(f.geometry); // พยายามลดซ้ำ
+        if(!used.has(key)){ used.add(key); feats.push(f); }
       }
-      if (feats.length){
-        selectedPolysLayer.addData({type:'FeatureCollection', features:feats});
-      }
+      if(feats.length) selectedPolysLayer.addData({type:'FeatureCollection',features:feats});
     }
 
-    // ===== Add/Update/Delete with constraints =====
-    function addPointWithChecks(lat, lon){
-      if (!isFinite(lat) || !isFinite(lon)) { toast('พิกัดไม่ถูกต้อง'); return; }
-      if (!thBorderPolys || !subdistrictPolys){ toast('ยังโหลดขอบเขตไม่เสร็จ'); return; }
-      if (!isInsideThailand(lat, lon)){ toast('พิกัดอยู่นอกประเทศไทย — ไม่สามารถเพิ่มจุดได้'); return; }
-      const props = findSubdistrictProps(lat, lon);
-      if (!props){ toast('พิกัดอยู่นอกขอบเขต GeoJSON — ไม่สามารถเพิ่มจุดได้'); return; }
-      const {__feat, ...onlyProps} = props;
-      const p = {id: nextId++, lat, lon, props: onlyProps};
-      // เก็บ reference ของ feature ไว้ภายใน (ไม่ใส่ลง props ตอน export)
-      p.props.__feat = __feat;
+    // ===== CRUD with constraints =====
+    function addPointWithChecks(lat,lon){
+      if(!isFinite(lat)||!isFinite(lon)){ toast('พิกัดไม่ถูกต้อง'); return; }
+      if(!thBorderPolys||!subdistrictPolys){ toast('ยังโหลดขอบเขตไม่เสร็จ'); return; }
+      if(!isInsideThailand(lat,lon)){ toast('พิกัดอยู่นอกประเทศไทย — ไม่สามารถเพิ่มจุดได้'); return; }
+      const feat=findSubdistrictFeature(lat,lon);
+      if(!feat){ toast('พิกัดอยู่นอกขอบเขต GeoJSON — ไม่สามารถเพิ่มจุดได้'); return; }
+      const prop=feat.properties||{};
+      const p={id:nextId++,lat,lon,props:{
+        tambon:prop[FIELD_TAMBON]??null,
+        amphoe:prop[FIELD_AMPHOE]??null,
+        changwat:prop[FIELD_CHANGWAT]??null
+      }};
+      // เก็บ ref ไว้ใช้วาดเส้นตำบลที่เลือก
+      p.__feat = feat;
       points.push(p);
       refreshMarkers();
     }
 
-    function updatePointCoord(id, newLat, newLon){
-      const p = points.find(pp=>pp.id===id);
-      if (!p) return;
-      const lat = (newLat===null)? p.lat : newLat;
-      const lon = (newLon===null)? p.lon : newLon;
-      if (!isFinite(lat) || !isFinite(lon)){ toast('ค่าพิกัดไม่ถูกต้อง'); renderTable(); return; }
-      if (!isInsideThailand(lat, lon)){ toast('อยู่นอกประเทศไทย — ยกเลิก'); renderTable(); return; }
-      const props = findSubdistrictProps(lat, lon);
-      if (!props){ toast('อยู่นอกขอบเขต GeoJSON — ยกเลิก'); renderTable(); return; }
-      const {__feat, ...onlyProps} = props;
-      p.lat = lat; p.lon = lon; p.props = onlyProps; p.props.__feat = __feat;
-      if (p.marker) p.marker.setLatLng([p.lat, p.lon]);
+    function updatePointCoord(id,newLat,newLon){
+      const p=points.find(pp=>pp.id===id); if(!p) return;
+      const lat=(newLat===null)?p.lat:newLat, lon=(newLon===null)?p.lon:newLon;
+      if(!isFinite(lat)||!isFinite(lon)){ toast('ค่าพิกัดไม่ถูกต้อง'); renderTable(); return; }
+      if(!isInsideThailand(lat,lon)){ toast('อยู่นอกประเทศไทย — ยกเลิก'); renderTable(); return; }
+      const feat=findSubdistrictFeature(lat,lon);
+      if(!feat){ toast('อยู่นอกขอบเขต GeoJSON — ยกเลิก'); renderTable(); return; }
+      const prop=feat.properties||{};
+      p.lat=lat; p.lon=lon;
+      p.props={ tambon:prop[FIELD_TAMBON]??null, amphoe:prop[FIELD_AMPHOE]??null, changwat:prop[FIELD_CHANGWAT]??null };
+      p.__feat = feat;
       refreshMarkers();
     }
 
     function removePointById(id){
-      const idx = points.findIndex(p=>p.id===id);
-      if (idx === -1) return;
-      const p = points[idx];
-      if (p.marker){ cluster.removeLayer(p.marker); }
+      const idx=points.findIndex(p=>p.id===id); if(idx===-1) return;
+      const p=points[idx]; if(p.marker) pointsLayer.removeLayer(p.marker);
       points.splice(idx,1);
       refreshMarkers();
       toast('ลบจุดแล้ว');
     }
 
-    // ===== Controls =====
+    // Controls
+    let addMode=false, tempAddMarker=null;
     function setAddMode(on){
-      addMode = !!on;
-      $('toggleAddModeBtn').textContent = addMode ? 'จบโหมดเพิ่มจากแผนที่' : 'เริ่มโหมดเพิ่มจากแผนที่';
-      if (addMode){ map.getContainer().classList.add('cursor-add'); toast('โหมดเพิ่ม: แตะแผนที่แล้ว “ยืนยันเพิ่มจุด”'); }
+      addMode=!!on;
+      $('toggleAddModeBtn').textContent=addMode?'จบโหมดเพิ่มจากแผนที่':'เริ่มโหมดเพิ่มจากแผนที่';
+      if(addMode){ map.getContainer().classList.add('cursor-add'); toast('โหมดเพิ่ม: แตะแผนที่แล้ว “ยืนยันเพิ่มจุด”'); }
       else { map.getContainer().classList.remove('cursor-add'); }
-      if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
+      if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
     }
-    $('toggleAddModeBtn').addEventListener('click', ()=> setAddMode(!addMode));
-    $('clearPointsBtn').addEventListener('click', ()=>{ points = []; cluster.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); });
-    $('rejoinBtn').addEventListener('click', ()=>{
-      if (!subdistrictPolys){ toast('ยังไม่มีขอบเขต'); return; }
-      let hit=0, miss=0;
+    $('toggleAddModeBtn').addEventListener('click',()=>setAddMode(!addMode));
+    $('clearPointsBtn')?.addEventListener('click',()=>{ points=[]; pointsLayer.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); });
+    $('rejoinBtn').addEventListener('click',()=>{
+      if(!subdistrictPolys){ toast('ยังไม่มีขอบเขต'); return; }
+      let hit=0,miss=0;
       points.forEach(p=>{
-        const f = findSubdistrictFeature(p.lat, p.lon);
-        if (f){
-          const prop = f.properties||{};
-          p.props = {
-            tambon:  prop[FIELD_TAMBON]   ?? null,
-            amphoe:  prop[FIELD_AMPHOE]   ?? null,
-            changwat:prop[FIELD_CHANGWAT] ?? null,
-            __feat: f
-          };
-          hit++;
-        } else {
-          p.props = {tambon:null, amphoe:null, changwat:null}; miss++;
+        const f=findSubdistrictFeature(p.lat,p.lon);
+        if(f){
+          const prop=f.properties||{};
+          p.props={ tambon:prop[FIELD_TAMBON]??null, amphoe:prop[FIELD_AMPHOE]??null, changwat:prop[FIELD_CHANGWAT]??null };
+          p.__feat=f; hit++;
+        }else{
+          p.props={ tambon:null, amphoe:null, changwat:null }; p.__feat=null; miss++;
         }
       });
       refreshMarkers();
       toast(`Join ใหม่: ตรง ${hit} / ไม่พบ ${miss}`);
     });
 
-    // Editor row (+)
-    $('addNewRowBtn').addEventListener('click', ()=>{
-      const lat = toNumberMaybe($('newLat').value);
-      const lon = toNumberMaybe($('newLon').value);
-      addPointWithChecks(lat, lon);
-      $('newLat').value = ''; $('newLon').value = '';
+    // Add via editor
+    $('addNewRowBtn').addEventListener('click',()=>{
+      const lat=toNumberMaybe($('newLat').value);
+      const lon=toNumberMaybe($('newLon').value);
+      addPointWithChecks(lat,lon);
+      $('newLat').value=''; $('newLon').value='';
     });
 
-    // Map click add
+    // Add via map click
     map.on('click', (e)=>{
-      if (!addMode) return;
-      if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
-      tempAddMarker = L.marker(e.latlng, {opacity:0.9}).addTo(map);
-      const lat = e.latlng.lat, lon = e.latlng.lng;
-      const html = `
-        <div><b>ยืนยันเพิ่มจุดนี้</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
-        <div style="margin-top:8px"><button class="btn" id="confirmAddBtn">ยืนยันเพิ่มจุด</button></div>`;
+      if(!addMode) return;
+      if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
+      tempAddMarker=L.marker(e.latlng,{opacity:0.9}).addTo(map);
+      const {lat, lng:lon}=e.latlng;
+      const html=`<div><b>ยืนยันเพิ่มจุดนี้</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
+                  <div style="margin-top:8px"><button class="btn" id="confirmAddBtn">ยืนยันเพิ่มจุด</button></div>`;
       tempAddMarker.bindPopup(html);
-      tempAddMarker.once('popupopen', ()=>{
-        const ok = document.getElementById('confirmAddBtn');
-        if (ok){
-          ok.addEventListener('click', ()=>{
-            addPointWithChecks(lat, lon);
-            if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
-          }, { once: true });
-        }
+      tempAddMarker.once('popupopen',()=>{
+        const ok=document.getElementById('confirmAddBtn');
+        if(ok){ ok.addEventListener('click',()=>{ addPointWithChecks(lat,lon); if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; } },{once:true}); }
       });
       tempAddMarker.openPopup();
     });
 
-    // Excel/CSV upload (+ constraints)
-    $('excelInput').addEventListener('change', async (ev)=>{
-      const file = ev.target.files && ev.target.files[0];
-      if (!file) return;
+    // Upload
+    $('excelInput').addEventListener('change', async(ev)=>{
+      const file=ev.target.files&&ev.target.files[0]; if(!file) return;
       try{
-        const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf, {type:'array'});
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true});
-        const hasHeader = $('hasHeader').checked;
-        let added = 0, skipped = 0;
-        rows.forEach((r,i)=>{
-          if (!Array.isArray(r) || r.length < 2) return;
-          if (hasHeader && i===0) return;
-          const lat = toNumberMaybe(r[0]);
-          const lon = toNumberMaybe(r[1]);
-          const before = points.length;
-          addPointWithChecks(lat, lon);
-          if (points.length>before) added++; else skipped++;
+        const buf=await file.arrayBuffer();
+        const wb=XLSX.read(buf,{type:'array'}); const ws=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true});
+        const hasHeader=$('hasHeader').checked;
+        let added=0,skipped=0;
+        ws.forEach((r,i)=>{
+          if(!Array.isArray(r)||r.length<2) return;
+          if(hasHeader&&i===0) return;
+          const lat=toNumberMaybe(r[0]); const lon=toNumberMaybe(r[1]);
+          const before=points.length; addPointWithChecks(lat,lon);
+          if(points.length>before) added++; else skipped++;
         });
-        $('excelPreview').textContent = `เพิ่มจากไฟล์: ${added.toLocaleString()} จุด (ข้าม ${skipped.toLocaleString()} จุด)`;
-        toast(`เพิ่มจุดจากไฟล์: ${added.toLocaleString()} จุด, ข้าม ${skipped.toLocaleString()} จุด`);
-      }catch(err){
-        console.error(err); toast('อ่านไฟล์ล้มเหลว: ' + (err?.message||err));
-      }
+        $('excelPreview').textContent=`เพิ่มจากไฟล์: ${added.toLocaleString()} จุด (ข้าม ${skipped.toLocaleString()} จุด)`;
+        toast(`เพิ่มจุดจากไฟล์: ${added} / ข้าม ${skipped}`);
+      }catch(err){ console.error(err); toast('อ่านไฟล์ล้มเหลว'); }
     });
 
-    // Exports
+    // Export helpers
     function exportCollectRows(){
-      const rows = [];
-      const body = document.getElementById('pointsTableBody');
-      const trs = Array.from(body.querySelectorAll('tr')).filter(tr=>!tr.classList.contains('row-editor'));
-      rows.push(['lat','lon','tambon','amphoe','changwat']);
+      const body=document.getElementById('pointsTableBody');
+      const trs=Array.from(body.querySelectorAll('tr')).filter(tr=>!tr.classList.contains('row-editor'));
+      const rows=[['lat','lon','tambon','amphoe','changwat']];
       trs.forEach(tr=>{
-        const tds = tr.querySelectorAll('td');
-        const lat = tds[2]?.querySelector('input')?.value ?? '';
-        const lon = tds[3]?.querySelector('input')?.value ?? '';
-        const tambon = tds[4]?.textContent?.trim() ?? '';
-        const amphoe = tds[5]?.textContent?.trim() ?? '';
-        const changwat = tds[6]?.textContent?.trim() ?? '';
+        const tds=tr.querySelectorAll('td');
+        const lat=tds[2]?.querySelector('input')?.value??'';
+        const lon=tds[3]?.querySelector('input')?.value??'';
+        const tambon=tds[4]?.textContent?.trim()??'';
+        const amphoe=tds[5]?.textContent?.trim()??'';
+        const changwat=tds[6]?.textContent?.trim()??'';
         rows.push([lat,lon,tambon,amphoe,changwat]);
       });
       return rows;
     }
-    $('exportCsvBtn').addEventListener('click', ()=>{
-      const rows = exportCollectRows();
-      const csv = rows.map(r=>r.map(v=>{
-        const s = (v===null||v===undefined)?'':String(v);
-        return s.includes(',')? '"'+s.replace(/"/g,'""')+'"' : s;
-      }).join(',')).join('\n');
-      download('points_joined.csv', csv, 'text/csv');
+    $('exportCsvBtn').addEventListener('click',()=>{
+      const rows=exportCollectRows();
+      const csv=rows.map(r=>r.map(v=>{const s=(v==null)?'':String(v); return s.includes(',')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
+      download('points_joined.csv',csv,'text/csv');
     });
-    $('exportXlsxBtn').addEventListener('click', ()=>{
-      const rows = exportCollectRows();
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'points_joined');
-      const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-      download('points_joined.xlsx', out, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    $('exportXlsxBtn').addEventListener('click',()=>{
+      const rows=exportCollectRows(); const ws=XLSX.utils.aoa_to_sheet(rows); const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,'points_joined'); const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+      download('points_joined.xlsx',out,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     });
-    $('exportGeojsonBtn').addEventListener('click', ()=>{
-      const rows = exportCollectRows();
-      const feats = rows.slice(1).map(r=>{
-        const lat = parseFloat(r[0]), lon = parseFloat(r[1]);
-        const tambon = r[2] || null, amphoe = r[3] || null, changwat = r[4] || null;
-        if (!isFinite(lat) || !isFinite(lon)) return null;
-        return { type:'Feature', geometry:{type:'Point', coordinates:[lon, lat]}, properties:{ lat, lon, tambon, amphoe, changwat } };
+    $('exportGeojsonBtn').addEventListener('click',()=>{
+      const rows=exportCollectRows();
+      const feats=rows.slice(1).map(r=>{
+        const lat=parseFloat(r[0]), lon=parseFloat(r[1]);
+        const tambon=r[2]||null, amphoe=r[3]||null, changwat=r[4]||null;
+        if(!isFinite(lat)||!isFinite(lon)) return null;
+        return {type:'Feature', geometry:{type:'Point', coordinates:[lon,lat]}, properties:{lat,lon,tambon,amphoe,changwat}};
       }).filter(Boolean);
-      const fc = {type:'FeatureCollection', features:feats};
+      const fc={type:'FeatureCollection',features:feats};
       download('points_joined.geojson', JSON.stringify(fc), 'application/geo+json');
     });
 
     // ===== Load data =====
     async function loadSubdistricts(path=SUBD_PATH){
-      const res = await fetch(path, { cache: 'no-store' });
-      if(!res.ok) throw new Error('subdistricts HTTP '+res.status);
-      const gj = await res.json();
-      if (!gj || gj.type!=='FeatureCollection' || !Array.isArray(gj.features) || !gj.features.length) throw new Error('subdistricts ไม่ถูกต้อง');
-      const polyFeats = gj.features.filter(f=>{ const g=f&&f.geometry; return g && (g.type==='Polygon' || g.type==='MultiPolygon'); });
-      subdistrictPolys = {type:'FeatureCollection', features: polyFeats};
-      subdBBoxes = subdistrictPolys.features.map(f=>turf.bbox(f));
+      const res=await fetch(path,{cache:'no-store'}); if(!res.ok) throw new Error('subdistricts HTTP '+res.status);
+      const gj=await res.json();
+      if(!gj||gj.type!=='FeatureCollection'||!Array.isArray(gj.features)||!gj.features.length) throw new Error('subdistricts ไม่ถูกต้อง');
+      const polys=gj.features.filter(f=>{const g=f&&f.geometry; return g&&(g.type==='Polygon'||g.type==='MultiPolygon');});
+      subdistrictPolys={type:'FeatureCollection',features:polys};
+      subdBBoxes=subdistrictPolys.features.map(f=>turf.bbox(f));
+      // ใส่ลงเลเยอร์ "ขอบเขตตำบลทั้งหมด" (แต่เลเยอร์นี้ยังไม่โชว์จนกว่าผู้ใช้จะติ๊ก)
+      allSubdistrictsLayer.addData(subdistrictPolys);
     }
     async function loadThailandBorder(path=TH_BORDER_PATH){
-      const res = await fetch(path, { cache: 'no-store' });
-      if(!res.ok) throw new Error('th_border HTTP '+res.status);
-      const gj = await res.json();
-      if (!gj || gj.type!=='FeatureCollection' || !Array.isArray(gj.features) || !gj.features.length) throw new Error('th_border ไม่ถูกต้อง');
-      thBorderPolys = gj; thBBoxes = thBorderPolys.features.map(f=>turf.bbox(f));
-      thBorderLayer.addData(thBorderPolys); // draw black outline only
+      const res=await fetch(path,{cache:'no-store'}); if(!res.ok) throw new Error('th_border HTTP '+res.status);
+      const gj=await res.json();
+      if(!gj||gj.type!=='FeatureCollection'||!Array.isArray(gj.features)||!gj.features.length) throw new Error('th_border ไม่ถูกต้อง');
+      thBorderPolys=gj; thBBoxes=thBorderPolys.features.map(f=>turf.bbox(f));
+      thBorderLayer.addData(thBorderPolys);
     }
 
     (async()=>{
