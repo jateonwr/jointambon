@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Leaflet – TH Points • Layer Toggles</title>
+  <title>Leaflet – TH Points • Layers + On-Map Legend</title>
 
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -40,10 +40,6 @@
     .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;border:1px solid #2a3354;background:#0e162b;color:#d6e5ff;font-size:18px}
     .btn-icon.danger{border-color:#5a2a2a;color:#ffcccc}
 
-    .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    .badge{display:inline-flex;align-items:center;gap:6px;background:#0f1a33;border:1px solid #233056;color:#b7c3de;padding:4px 8px;border-radius:999px;font-size:11px}
-    .dot{inline-size:10px;block-size:10px;border-radius:50%;background:#1e90ff;border:1px solid #fff3}
-    .poly{inline-size:14px;block-size:10px;border:1px solid #888;background:transparent}
     .divider{height:1px;background:#243056;margin:10px 0}
     .small{font-size:11px;color:#9fb0d0}
     .note{font-size:12px;color:#a9b0c0}
@@ -64,6 +60,13 @@
     input[type="number"].celled{width:110px;background:#0e1526;border:1px solid #1f2942;color:#eaf1ff;padding:6px 8px;border-radius:8px;outline:none}
     .row-editor{background:#0f1933}
     .row-editor td{position:sticky;top:32px;background:#0f1933;border-bottom:1px solid #233056}
+
+    /* Leaflet controls tweaks */
+    .leaflet-control-layers{max-height:60vh;overflow:auto}
+    .map-legend{background:#0f1a33c9;border:1px solid #233056;color:#b7c3de;padding:8px 10px;border-radius:10px;font-size:12px}
+    .legend-row{display:flex;align-items:center;gap:8px;margin:4px 0}
+    .legend-dot{width:10px;height:10px;border-radius:50%;background:#1e90ff;border:1px solid #fff3}
+    .legend-line{width:16px;height:10px;border-top:2px solid #888}
 
     @media (max-width: 1024px){
       .app{grid-template-columns:380px 1fr}
@@ -90,11 +93,7 @@
 
     <!-- Controls & Table -->
     <div class="panel panel-left">
-      <h1>Thailand Map • Layer Toggles</h1>
-      <div class="legend">
-        <span class="badge"><span class="dot"></span> จุด (Lat/Lon)</span>
-        <span class="badge"><span class="poly"></span> เส้นตำบลที่เลือก/ทั้งหมด</span>
-      </div>
+      <h1>Thailand Map • Layers + On-Map Legend</h1>
 
       <div class="divider"></div>
 
@@ -162,33 +161,38 @@
   <div id="toast" class="toast" style="display:none"></div>
 
   <script>
+  // ===== Shortcuts =====
   const $ = (id) => document.getElementById(id);
   function toast(msg, ms=2200){ const el=$('toast'); el.textContent=msg; el.style.display='block'; setTimeout(()=>{el.style.display='none'}, ms); }
   function formatLatLon(n){ return (typeof n==='number' && isFinite(n)) ? n.toFixed(6) : n; }
   function toNumberMaybe(v){ if (typeof v==='number') return v; if (typeof v==='string'){ const s=v.trim().replace(/,/g,'.'); const f=parseFloat(s); return isNaN(f)?null:f;} return null; }
   function download(filename, data, mime='application/octet-stream'){ const blob=new Blob([data],{type:mime}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url); }
 
+  // ===== Config =====
   const FIELD_TAMBON='tam_th', FIELD_AMPHOE='amp_th', FIELD_CHANGWAT='pro_th';
   const SUBD_PATH='subdistricts.geojson';    // ตำบล (ทั้งประเทศ)
   const TH_BORDER_PATH='th_boundary.geojson';// ขอบประเทศ
 
   document.addEventListener('DOMContentLoaded', () => {
-    // Map & basemaps
+    // Map & basemaps (ไม่ใส่ scale => ไม่มี mi/km)
     const map = L.map('map', {preferCanvas:true});
     const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
     map.fitBounds(thBounds);
+
     const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery © Esri'});
-    L.control.scale().addTo(map);
+    const satellite = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {maxZoom:19, attribution:'Imagery © Esri'}
+    );
     setTimeout(()=>map.invalidateSize(true),300);
 
-    // Overlays (4 รายการตามที่ขอ)
+    // Overlays
     const pointsLayer = L.markerClusterGroup({ disableClusteringAtZoom: 13 }).addTo(map);
     const selectedPolysLayer = L.geoJSON(null,{style:{color:'#888',weight:2,fill:false}}).addTo(map);
-    const allSubdistrictsLayer = L.geoJSON(null,{style:{color:'#666',weight:1,fill:false}}); // ไม่ addTo เริ่มต้น
+    const allSubdistrictsLayer = L.geoJSON(null,{style:{color:'#666',weight:1,fill:false}}); // off by default
     const thBorderLayer = L.geoJSON(null,{style:{color:'#000',weight:2,fill:false}}).addTo(map);
 
-    // Layer control
+    // === Layers control (มุมขวาบน) ===
     const baseLayers = { 'OSM': osm, 'Satellite': satellite };
     const overlayLayers = {
       'จุด': pointsLayer,
@@ -196,9 +200,20 @@
       'ขอบเขตตำบลทั้งหมด': allSubdistrictsLayer,
       'ขอบเขตประเทศ': thBorderLayer
     };
-    L.control.layers(baseLayers, overlayLayers, {collapsed:false}).addTo(map);
+    L.control.layers(baseLayers, overlayLayers, {collapsed:false, position:'topright'}).addTo(map);
 
-    // State
+    // === On-map legend (มุมซ้ายล่าง) ===
+    const legend = L.control({position:'bottomleft'});
+    legend.onAdd = function(){
+      const div = L.DomUtil.create('div','map-legend');
+      div.innerHTML = `
+        <div class="legend-row"><span class="legend-dot"></span> จุด (Lat/Lon)</div>
+        <div class="legend-row"><span class="legend-line" style="border-color:#888"></span> แสดงเส้นตำบลเฉพาะที่เลือก</div>`;
+      return div;
+    };
+    legend.addTo(map);
+
+    // ===== State =====
     let points=[]; let nextId=1;
     let subdistrictPolys=null, subdBBoxes=[];
     let thBorderPolys=null, thBBoxes=[];
@@ -225,6 +240,7 @@
       tb.querySelectorAll('button[data-del]').forEach(btn=>btn.addEventListener('click',()=>removePointById(Number(btn.getAttribute('data-del')))));
       tb.querySelectorAll('input[data-edit-lat]').forEach(inp=>inp.addEventListener('change',()=>updatePointCoord(Number(inp.getAttribute('data-edit-lat')), toNumberMaybe(inp.value), null)));
       tb.querySelectorAll('input[data-edit-lon]').forEach(inp=>inp.addEventListener('change',()=>updatePointCoord(Number(inp.getAttribute('data-edit-lon')), null, toNumberMaybe(inp.value))));
+      renderSelectedPolys();
     }
 
     function popupHtmlForPoint(p){
@@ -252,7 +268,6 @@
       $('exportXlsxBtn').disabled=!enable;
       $('exportGeojsonBtn').disabled=!enable;
       renderTable();
-      renderSelectedPolys();
     }
 
     // ===== Geometry helpers =====
@@ -277,8 +292,6 @@
       }
       return null;
     }
-
-    // ===== Selected polygons (grey) =====
     function renderSelectedPolys(){
       selectedPolysLayer.clearLayers();
       if(!points.length || !subdistrictPolys) return;
@@ -286,7 +299,7 @@
       for(const p of points){
         const f=p.__feat;
         if(!f) continue;
-        const key = f.id || JSON.stringify(f.geometry); // พยายามลดซ้ำ
+        const key = f.id || JSON.stringify(f.geometry);
         if(!used.has(key)){ used.add(key); feats.push(f); }
       }
       if(feats.length) selectedPolysLayer.addData({type:'FeatureCollection',features:feats});
@@ -301,12 +314,9 @@
       if(!feat){ toast('พิกัดอยู่นอกขอบเขต GeoJSON — ไม่สามารถเพิ่มจุดได้'); return; }
       const prop=feat.properties||{};
       const p={id:nextId++,lat,lon,props:{
-        tambon:prop[FIELD_TAMBON]??null,
-        amphoe:prop[FIELD_AMPHOE]??null,
-        changwat:prop[FIELD_CHANGWAT]??null
+        tambon:prop[FIELD_TAMBON]??null, amphoe:prop[FIELD_AMPHOE]??null, changwat:prop[FIELD_CHANGWAT]??null
       }};
-      // เก็บ ref ไว้ใช้วาดเส้นตำบลที่เลือก
-      p.__feat = feat;
+      p.__feat = feat; // keep ref for selected polygon display
       points.push(p);
       refreshMarkers();
     }
@@ -321,7 +331,7 @@
       const prop=feat.properties||{};
       p.lat=lat; p.lon=lon;
       p.props={ tambon:prop[FIELD_TAMBON]??null, amphoe:prop[FIELD_AMPHOE]??null, changwat:prop[FIELD_CHANGWAT]??null };
-      p.__feat = feat;
+      p.__feat=feat;
       refreshMarkers();
     }
 
@@ -334,15 +344,11 @@
     }
 
     // Controls
-    let addMode=false, tempAddMarker=null;
-    function setAddMode(on){
-      addMode=!!on;
+    $('toggleAddModeBtn').addEventListener('click',()=>{
+      addMode=!window.__addMode; window.__addMode=addMode;
       $('toggleAddModeBtn').textContent=addMode?'จบโหมดเพิ่มจากแผนที่':'เริ่มโหมดเพิ่มจากแผนที่';
-      if(addMode){ map.getContainer().classList.add('cursor-add'); toast('โหมดเพิ่ม: แตะแผนที่แล้ว “ยืนยันเพิ่มจุด”'); }
-      else { map.getContainer().classList.remove('cursor-add'); }
-      if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
-    }
-    $('toggleAddModeBtn').addEventListener('click',()=>setAddMode(!addMode));
+      if(!addMode && tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
+    });
     $('clearPointsBtn')?.addEventListener('click',()=>{ points=[]; pointsLayer.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); });
     $('rejoinBtn').addEventListener('click',()=>{
       if(!subdistrictPolys){ toast('ยังไม่มีขอบเขต'); return; }
@@ -361,7 +367,7 @@
       toast(`Join ใหม่: ตรง ${hit} / ไม่พบ ${miss}`);
     });
 
-    // Add via editor
+    // Add from editor
     $('addNewRowBtn').addEventListener('click',()=>{
       const lat=toNumberMaybe($('newLat').value);
       const lon=toNumberMaybe($('newLon').value);
@@ -369,12 +375,13 @@
       $('newLat').value=''; $('newLon').value='';
     });
 
-    // Add via map click
+    // Add from map click
+    let addMode=false, tempAddMarker=null;
     map.on('click', (e)=>{
       if(!addMode) return;
       if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
       tempAddMarker=L.marker(e.latlng,{opacity:0.9}).addTo(map);
-      const {lat, lng:lon}=e.latlng;
+      const {lat,lng:lon}=e.latlng;
       const html=`<div><b>ยืนยันเพิ่มจุดนี้</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
                   <div style="margin-top:8px"><button class="btn" id="confirmAddBtn">ยืนยันเพิ่มจุด</button></div>`;
       tempAddMarker.bindPopup(html);
@@ -390,10 +397,11 @@
       const file=ev.target.files&&ev.target.files[0]; if(!file) return;
       try{
         const buf=await file.arrayBuffer();
-        const wb=XLSX.read(buf,{type:'array'}); const ws=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true});
+        const wb=XLSX.read(buf,{type:'array'});
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true});
         const hasHeader=$('hasHeader').checked;
         let added=0,skipped=0;
-        ws.forEach((r,i)=>{
+        rows.forEach((r,i)=>{
           if(!Array.isArray(r)||r.length<2) return;
           if(hasHeader&&i===0) return;
           const lat=toNumberMaybe(r[0]); const lon=toNumberMaybe(r[1]);
@@ -405,7 +413,7 @@
       }catch(err){ console.error(err); toast('อ่านไฟล์ล้มเหลว'); }
     });
 
-    // Export helpers
+    // Export
     function exportCollectRows(){
       const body=document.getElementById('pointsTableBody');
       const trs=Array.from(body.querySelectorAll('tr')).filter(tr=>!tr.classList.contains('row-editor'));
@@ -451,8 +459,7 @@
       const polys=gj.features.filter(f=>{const g=f&&f.geometry; return g&&(g.type==='Polygon'||g.type==='MultiPolygon');});
       subdistrictPolys={type:'FeatureCollection',features:polys};
       subdBBoxes=subdistrictPolys.features.map(f=>turf.bbox(f));
-      // ใส่ลงเลเยอร์ "ขอบเขตตำบลทั้งหมด" (แต่เลเยอร์นี้ยังไม่โชว์จนกว่าผู้ใช้จะติ๊ก)
-      allSubdistrictsLayer.addData(subdistrictPolys);
+      allSubdistrictsLayer.addData(subdistrictPolys); // ไว้ให้ผู้ใช้เปิดเองจาก Layers
     }
     async function loadThailandBorder(path=TH_BORDER_PATH){
       const res=await fetch(path,{cache:'no-store'}); if(!res.ok) throw new Error('th_border HTTP '+res.status);
