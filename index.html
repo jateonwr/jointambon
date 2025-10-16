@@ -172,12 +172,17 @@
       <div class="divider"></div>
 
       <h2>อัปโหลดจุดจาก Excel/CSV</h2>
-      <label class="small">คอลัมน์ A = lat, คอลัมน์ B = lon (แถวแรกเป็น header หรือไม่ก็ได้)</label>
+
+      <!-- ย้าย checkbox “แถวแรกเป็น header” มาอยู่แทนข้อความวงเล็บ -->
+      <label class="small" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span>คอลัมน์ A = lat, คอลัมน์ B = lon</span>
+        <span style="display:inline-flex;align-items:center;gap:6px">
+          <input id="hasHeader" type="checkbox" checked />
+          <span>แถวแรกเป็น header</span>
+        </span>
+      </label>
+
       <input id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
-      <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-        <input id="hasHeader" type="checkbox" checked />
-        <label for="hasHeader" class="small">แถวแรกเป็น header</label>
-      </div>
       <div id="excelPreview" class="small" style="margin-top:6px;color:#b8c7ea"></div>
 
       <div class="divider"></div>
@@ -218,14 +223,20 @@
     const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
     map.fitBounds(thBounds);
 
-    // Basemaps: OSM + Satellite (ตัด Humanitarian/Esri เดิมออกจากตัวเลือก)
+    // Basemaps: OSM + Satellite
     const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
     const satellite = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       {maxZoom:19, attribution:'Imagery © Esri'}
     );
-    L.control.layers({'OSM':osmStd,'Satellite':satellite},{},{collapsed:false}).addTo(map);
-    L.control.scale().addTo(map);
+
+    // กล่องแยก: Base Map (เฉพาะฐานแผนที่)
+    const baseMaps = {'OSM':osmStd,'Satellite':satellite};
+    L.control.layers(baseMaps, null, {collapsed:false, position:'topright'}).addTo(map);
+
+    // สเกล: เอา mi ออก
+    L.control.scale({imperial:false, metric:true}).addTo(map);
+
     setTimeout(()=>map.invalidateSize(true), 300);
 
     // Layers
@@ -234,6 +245,17 @@
 
     const cluster = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
     map.addLayer(cluster);
+
+    // กล่องแยก: Overlays (จุด/ขอบเขตที่เลือก/ขอบเขตประเทศไทย)
+    L.control.layers(
+      null,
+      {
+        'จุด': cluster,
+        'ขอบเขตพื้นที่ที่เลือก': selectedPolysLayer,
+        'ขอบเขตประเทศไทย': thBorderLayer
+      },
+      {collapsed:false, position:'topright'}
+    ).addTo(map);
 
     // ===== State =====
     let points=[]; let nextId=1;
@@ -374,7 +396,6 @@
       for (const p of points){
         const propFeat = p.props?.__feat;
         if (!propFeat) continue;
-        // build a simple key to avoid duplicates
         const key = JSON.stringify(propFeat.geometry);
         if (!used.has(key)){
           used.add(key);
@@ -395,8 +416,7 @@
       if (!props){ toast('พิกัดอยู่นอกขอบเขต GeoJSON — ไม่สามารถเพิ่มจุดได้'); return; }
       const {__feat, ...onlyProps} = props;
       const p = {id: nextId++, lat, lon, props: onlyProps};
-      // เก็บ reference ของ feature ไว้ภายใน (ไม่ใส่ลง props ตอน export)
-      p.props.__feat = __feat;
+      p.props.__feat = __feat; // reference ภายใน
       points.push(p);
       refreshMarkers();
     }
@@ -420,7 +440,8 @@
       const idx = points.findIndex(p=>p.id===id);
       if (idx === -1) return;
       const p = points[idx];
-      if (p.marker){ cluster.removeLayer(p.marker); }
+      if (p.marker){ map.hasLayer(p.marker) && map.removeLayer(p.marker); }
+      if (cluster) { cluster.removeLayer(p.marker); }
       points.splice(idx,1);
       refreshMarkers();
       toast('ลบจุดแล้ว');
@@ -488,7 +509,7 @@
       tempAddMarker.openPopup();
     });
 
-    // Excel/CSV upload (+ constraints)
+    // Excel/CSV upload
     $('excelInput').addEventListener('change', async (ev)=>{
       const file = ev.target.files && ev.target.files[0];
       if (!file) return;
