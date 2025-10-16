@@ -113,11 +113,7 @@
     <!-- Controls & Table -->
     <div class="panel panel-left">
       <h1>Thailand Map • ขอบเขตที่เลือก + Satellite</h1>
-      <div class="legend">
-        <span class="badge"><span class="dot"></span> จุด (Lat/Lon)</span>
-        <span class="badge"><span class="poly"></span> แสดงเส้นตำบลเฉพาะที่เลือก</span>
-      </div>
-
+      
       <div class="divider"></div>
 
       <!-- Table header bar with buttons in-line -->
@@ -251,8 +247,8 @@
       null,
       {
         'จุด': cluster,
-        'ขอบเขตพื้นที่ที่เลือก': selectedPolysLayer,
-        'ขอบเขตประเทศไทย': thBorderLayer
+        'ตำบล': selectedPolysLayer,
+        'ประเทศไทย': thBorderLayer
       },
       {collapsed:false, position:'topright'}
     ).addTo(map);
