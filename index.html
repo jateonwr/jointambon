@@ -3,15 +3,26 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Leaflet – TH Points • GeoJSON จาก Repo (ฟิลด์คงที่ + กรอบประเทศไทย)</title>
+  <title>Leaflet – TH Points • GeoJSON (ฟิลด์คงที่ + Export + Excel)</title>
+
+  <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- MarkerCluster -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- Turf.js -->
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+  <!-- SheetJS (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <style>
     :root{--bg:#0b1020;--card:#10182b;--muted:#a9b0c0;--accent:#1e90ff}
     html,body{height:100%;margin:0;font-family:'Sarabun',system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
@@ -27,7 +38,7 @@
     .btn-danger{background:transparent;border:1px solid #703a3a;color:#ffbcbc}
     .muted{color:var(--muted);font-size:12px}
     .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    #map{width:100%;height:100%;min-height:520px;border-radius:14px;overflow:hidden}
+    #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden} /* สูงขึ้นให้ชัวร์ */
     .badge{display:inline-flex;align-items:center;gap:6px;background:#0f1a33;border:1px solid #233056;color:#b7c3de;padding:4px 8px;border-radius:999px;font-size:11px}
     .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .dot{inline-size:10px;block-size:10px;border-radius:50%;background:#1e90ff;border:1px solid #fff3}
@@ -50,7 +61,7 @@
     .row-editor td{position:sticky; top:32px; background:#0f1933; border-bottom:1px solid #233056;}
     @media (max-width: 980px){
       .app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
-      #map{min-height:480px}
+      #map{min-height:420px}
     }
   </style>
 </head>
@@ -68,6 +79,7 @@
       <div class="actions" style="margin-top:6px">
         <button class="btn" id="toggleAddModeBtn">เริ่มโหมดเพิ่มจากแผนที่</button>
         <button class="btn btn-outline" id="clearPointsBtn">ล้างจุดทั้งหมด</button>
+        <button class="btn btn-outline" id="rejoinBtn" title="คำนวณใหม่จาก polygon">Join ใหม่</button>
       </div>
 
       <div class="divider"></div>
@@ -104,6 +116,23 @@
 
       <div class="divider"></div>
 
+      <h2>อัปโหลดจุดจาก Excel/CSV</h2>
+      <label class="small">คอลัมน์ A = lat, คอลัมน์ B = lon (แถวแรกเป็น header หรือไม่ก็ได้)</label>
+      <input id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+        <input id="hasHeader" type="checkbox" checked />
+        <label for="hasHeader" class="muted">แถวแรกเป็น header</label>
+      </div>
+      <div id="excelPreview" class="small" style="margin-top:6px;color:#b8c7ea"></div>
+
+      <div class="divider"></div>
+
+      <div class="actions" style="margin-top:6px">
+        <button class="btn btn-outline" id="exportCsvBtn" disabled>Export CSV</button>
+        <button class="btn btn-outline" id="exportXlsxBtn" disabled>Export Excel (.xlsx)</button>
+        <button class="btn btn-outline" id="exportGeojsonBtn" disabled>Export GeoJSON</button>
+      </div>
+
       <div style="margin-top:auto">
         <div class="divider"></div>
         <div class="small">Static • GitHub Pages • Leaflet/Turf/SheetJS • Sarabun</div>
@@ -123,122 +152,401 @@
   function toNumberMaybe(v){ if (typeof v==='number') return v; if (typeof v==='string'){ const s=v.trim().replace(/,/g,'.'); const f=parseFloat(s); return isNaN(f)?null:f;} return null; }
   function download(filename, data, mime='application/octet-stream'){ const blob=new Blob([data],{type:mime}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url); }
 
-  // ===== Map base =====
-  const map = L.map('map', {preferCanvas:true});
-  const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]); // ครอบประเทศไทยโดยคร่าว
-  map.fitBounds(thBounds);
-
-  // ไฮไลท์ "กรอบประเทศไทย"
-  L.rectangle(thBounds, {color:'#64ffda', weight:2, fill:false, dashArray:'6,4'}).addTo(map);
-
-  const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-  const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OSM, HOT'});
-  const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri'});
-  L.control.layers({'OSM (default)':osmStd,'OSM Humanitarian':osmHot,'Esri Imagery':esriSat},{},{collapsed:false}).addTo(map);
-  L.control.scale().addTo(map);
-  setTimeout(()=>map.invalidateSize(true),300);
-
-  const polygonLayer = L.geoJSON(null,{style:{color:'#64ffda',weight:1,fillColor:'#64ffda',fillOpacity:0.12}}).addTo(map);
-  const cluster = L.markerClusterGroup({ disableClusteringAtZoom: 13 }); map.addLayer(cluster);
-
-  // ===== State =====
-  let points=[]; let nextId=1; let geojsonPolygons=null; let polyBBoxes=[];
-  let addMode=false; let tempAddMarker=null;
-
-  // ===== Add mode =====
-  function setAddMode(on){ addMode=!!on; $('toggleAddModeBtn').textContent=addMode?'จบโหมดเพิ่มจากแผนที่':'เริ่มโหมดเพิ่มจากแผนที่'; if(addMode){ map.getContainer().classList.add('cursor-add'); toast('โหมดเพิ่ม: คลิกแผนที่แล้ว “ยืนยันเพิ่มจุด”'); } else { map.getContainer().classList.remove('cursor-add'); } if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null;} }
-  $('toggleAddModeBtn').addEventListener('click',()=> setAddMode(!addMode));
-  $('clearPointsBtn').addEventListener('click',()=>{ points=[]; cluster.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); });
-
-  // ===== Table & markers =====
-  function renderTable(){ const tb=$('pointsTableBody'); const editor=tb.querySelector('.row-editor'); tb.innerHTML=''; tb.appendChild(editor);
-    points.forEach((p,idx)=>{ const tr=document.createElement('tr'); tr.innerHTML=`
-      <td class="t-num"><span class="pill">${idx+1}</span></td>
-      <td><input class="celled" type="number" step="any" data-edit-lat="${p.id}" value="${formatLatLon(p.lat)}"></td>
-      <td><input class="celled" type="number" step="any" data-edit-lon="${p.id}" value="${formatLatLon(p.lon)}"></td>
-      <td>${p.props?.tambon ?? ''}</td>
-      <td>${p.props?.amphoe ?? ''}</td>
-      <td>${p.props?.changwat ?? ''}</td>
-      <td class="t-actions"><button class="btn btn-danger" data-del="${p.id}" title="ลบแถวนี้">ลบ</button></td>`; tb.appendChild(tr); });
-    $('pointCount').textContent=points.length.toLocaleString();
-    tb.querySelectorAll('button[data-del]').forEach(btn=>btn.addEventListener('click',()=> removePointById(Number(btn.getAttribute('data-del')))));
-    tb.querySelectorAll('input[data-edit-lat]').forEach(inp=>inp.addEventListener('change',()=>{ const id=Number(inp.getAttribute('data-edit-lat')); const val=toNumberMaybe(inp.value); updatePointCoord(id,val,null);}));
-    tb.querySelectorAll('input[data-edit-lon]').forEach(inp=>inp.addEventListener('change',()=>{ const id=Number(inp.getAttribute('data-edit-lon')); const val=toNumberMaybe(inp.value); updatePointCoord(id,null,val);}));
-  }
-  function refreshMarkers(){ cluster.clearLayers(); points.forEach(p=>{ if(!p.marker){ const m=L.circleMarker([p.lat,p.lon],{radius:5,weight:1,color:'#1e90ff',fillColor:'#1e90ff',fillOpacity:0.9}); m.bindPopup(popupHtmlForPoint(p)); m.on('popupopen',(ev)=>{ const btn=ev.popup._contentNode.querySelector('button[data-del-marker]'); if(btn) btn.addEventListener('click',()=>{ removePointById(p.id); map.closePopup(); }); }); p.marker=m;} else { p.marker.setLatLng([p.lat,p.lon]); p.marker.setPopupContent(popupHtmlForPoint(p)); } cluster.addLayer(p.marker); }); const enable=points.length>0; /* enable exports if needed in future */ renderTable(); }
-  function popupHtmlForPoint(p){ const props=p.props||{}; return `Lat: ${formatLatLon(p.lat)}<br>Lon: ${formatLatLon(p.lon)}${(props.tambon||props.amphoe||props.changwat)? `<br><b>ตำบล</b>: ${props.tambon ?? '-'}<br><b>อำเภอ</b>: ${props.amphoe ?? '-'}<br><b>จังหวัด</b>: ${props.changwat ?? '-'}`:''}<div style="margin-top:8px"><button class="btn btn-danger" data-del-marker="${p.id}">ลบจุดนี้</button></div>`; }
-  function addPoint(lat,lon){ if(!isFinite(lat)||!isFinite(lon)){ toast('พิกัดไม่ถูกต้อง'); return;} if(lat<-90||lat>90||lon<-180||lon>180){ toast('ช่วงพิกัดผิด (lat −90..90, lon −180..180)'); return;} points.push({id:nextId++,lat,lon,props:{}}); refreshMarkers(); }
-  function updatePointCoord(id,newLat,newLon){ const p=points.find(pp=>pp.id===id); if(!p) return; const lat=(newLat===null)?p.lat:newLat; const lon=(newLon===null)?p.lon:newLon; if(!isFinite(lat)||!isFinite(lon)||lat<-90||lat>90||lon<-180||lon>180){ toast('ค่าพิกัดไม่ถูกต้อง'); renderTable(); return;} p.lat=lat; p.lon=lon; if(p.marker) p.marker.setLatLng([p.lat,p.lon]); refreshMarkers(); }
-  function removePointById(id){ const idx=points.findIndex(p=>p.id===id); if(idx===-1) return; const p=points[idx]; if(p.marker) cluster.removeLayer(p.marker); points.splice(idx,1); refreshMarkers(); toast('ลบจุดแล้ว'); }
-
-  document.getElementById('addNewRowBtn').addEventListener('click',()=>{ const lat=toNumberMaybe($('newLat').value); const lon=toNumberMaybe($('newLon').value); addPoint(lat,lon); $('newLat').value=''; $('newLon').value=''; });
-  map.on('click',(e)=>{ if(!addMode) return; if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; } tempAddMarker=L.marker(e.latlng,{opacity:0.9}).addTo(map); const lat=e.latlng.lat, lon=e.latlng.lng; const html=`<div><b>ยืนยันเพิ่มจุดนี้</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div><div style="margin-top:8px"><button class="btn" id="confirmAddBtn">ยืนยันเพิ่มจุด</button></div>`; tempAddMarker.bindPopup(html); tempAddMarker.once('popupopen',()=>{ const ok=document.getElementById('confirmAddBtn'); if(ok){ ok.addEventListener('click',()=>{ addPoint(lat,lon); toast(\`เพิ่มจุด: ${lat.toFixed(6)}, ${lon.toFixed(6)}\`); if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; } },{once:true}); } }); tempAddMarker.openPopup(); });
-
-  // ===== Load GeoJSON from repo (fixed path) =====
-  const FIELD_TAMBON = 'tam_th';
-  const FIELD_AMPHOE = 'amp_th';
+  // ===== Constants =====
+  const FIELD_TAMBON   = 'tam_th';
+  const FIELD_AMPHOE   = 'amp_th';
   const FIELD_CHANGWAT = 'pro_th';
+  const GEOJSON_PATH   = 'subdistricts.geojson'; // วางไว้โฟลเดอร์เดียวกันกับไฟล์นี้
 
-  async function loadGeoJSONFromRepo(path='subdistricts.geojson'){
-    try{
-      const res = await fetch(path, { cache: 'no-store' });
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const parsed = await res.json();
-      if (!parsed || parsed.type!=='FeatureCollection' || !Array.isArray(parsed.features) || !parsed.features.length) throw new Error('ไม่ใช่ FeatureCollection หรือไม่มี feature');
-      const polyFeats = parsed.features.filter(f=>{ const g=f&&f.geometry; return g&&(g.type==='Polygon'||g.type==='MultiPolygon'); });
-      if(!polyFeats.length) throw new Error('ไม่พบ Polygon/MultiPolygon');
-      geojsonPolygons = { type:'FeatureCollection', features: polyFeats };
-      polygonLayer.clearLayers(); polygonLayer.addData(geojsonPolygons);
-      // map.fitBounds(polygonLayer.getBounds()); // ถ้าต้องการซูมเข้าตาม polygon ให้เปิดบรรทัดนี้
-      polyBBoxes = geojsonPolygons.features.map(f=>turf.bbox(f));
-      toast('โหลด GeoJSON สำเร็จ');
-    }catch(err){
-      console.error(err);
-      toast('โหลด GeoJSON ไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson');
+  // ===== Map init after DOM ready =====
+  document.addEventListener('DOMContentLoaded', () => {
+    const map = L.map('map', {preferCanvas:true});
+    const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]); // ครอบประเทศไทยโดยคร่าว
+    map.fitBounds(thBounds);
+
+    // ไฮไลท์ "กรอบประเทศไทย"
+    L.rectangle(thBounds, {color:'#64ffda', weight:2, fill:false, dashArray:'6,4'}).addTo(map);
+
+    const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+    const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OSM, HOT'});
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri'});
+    L.control.layers({'OSM (default)':osmStd,'OSM Humanitarian':osmHot,'Esri Imagery':esriSat},{},{collapsed:false}).addTo(map);
+    L.control.scale().addTo(map);
+    setTimeout(()=>map.invalidateSize(true), 300); // ป้องกันกรณี map ซ้อน/ไม่วาด
+
+    // Layers
+    const polygonLayer = L.geoJSON(null,{style:{color:'#64ffda',weight:1,fillColor:'#64ffda',fillOpacity:0.12}}).addTo(map);
+    const cluster = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
+    map.addLayer(cluster);
+
+    // State
+    let points=[]; let nextId=1; let geojsonPolygons=null; let polyBBoxes=[];
+    let addMode=false; let tempAddMarker=null;
+
+    // ===== Core functions =====
+    function renderTable(){
+      const tb = $('pointsTableBody');
+      const editor = tb.querySelector('.row-editor');
+      tb.innerHTML = '';
+      tb.appendChild(editor);
+
+      points.forEach((p,idx)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="t-num"><span class="pill">${idx+1}</span></td>
+          <td><input class="celled" type="number" step="any" data-edit-lat="${p.id}" value="${formatLatLon(p.lat)}"></td>
+          <td><input class="celled" type="number" step="any" data-edit-lon="${p.id}" value="${formatLatLon(p.lon)}"></td>
+          <td>${p.props?.tambon ?? ''}</td>
+          <td>${p.props?.amphoe ?? ''}</td>
+          <td>${p.props?.changwat ?? ''}</td>
+          <td class="t-actions">
+            <button class="btn btn-danger" data-del="${p.id}" title="ลบแถวนี้">ลบ</button>
+          </td>`;
+        tb.appendChild(tr);
+      });
+
+      $('pointCount').textContent = points.length.toLocaleString();
+
+      // bind events
+      tb.querySelectorAll('button[data-del]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const id = Number(btn.getAttribute('data-del'));
+          removePointById(id);
+        });
+      });
+      tb.querySelectorAll('input[data-edit-lat]').forEach(inp=>{
+        inp.addEventListener('change', ()=>{
+          const id = Number(inp.getAttribute('data-edit-lat'));
+          const val = toNumberMaybe(inp.value);
+          updatePointCoord(id, val, null);
+        });
+      });
+      tb.querySelectorAll('input[data-edit-lon]').forEach(inp=>{
+        inp.addEventListener('change', ()=>{
+          const id = Number(inp.getAttribute('data-edit-lon'));
+          const val = toNumberMaybe(inp.value);
+          updatePointCoord(id, null, val);
+        });
+      });
     }
-  }
 
-  // ===== Join (point in polygon) — ใช้ฟิลด์คงที่ =====
-  function pointInPolygonJoin(){
-    if (!geojsonPolygons || !geojsonPolygons.features?.length){ toast('ยังไม่มีขอบเขต'); return; }
-    if (!points.length){ toast('ยังไม่มีจุด'); return; }
+    function popupHtmlForPoint(p){
+      const props = p.props||{};
+      return `Lat: ${formatLatLon(p.lat)}<br>
+              Lon: ${formatLatLon(p.lon)}
+              ${(props.tambon||props.amphoe||props.changwat)? `<br><b>ตำบล</b>: ${props.tambon ?? '-'}<br><b>อำเภอ</b>: ${props.amphoe ?? '-'}<br><b>จังหวัด</b>: ${props.changwat ?? '-'}`:''}
+              <div style="margin-top:8px">
+                <button class="btn btn-danger" data-del-marker="${p.id}">ลบจุดนี้</button>
+              </div>`;
+    }
 
-    const polys=geojsonPolygons.features;
-    let hit=0, miss=0;
-    points.forEach(p=>{ p.props=p.props||{}; });
-    const ptCache=points.map(p=>turf.point([p.lon,p.lat]));
-    for(let i=0;i<points.length;i++){
-      const pt=ptCache[i]; let found=false;
-      for(let j=0;j<polys.length;j++){
-        const bb=polyBBoxes[j]; const x=points[i].lon, y=points[i].lat;
-        if(x<bb[0]||x>bb[2]||y<bb[1]||y>bb[3]) continue;
-        if(turf.booleanPointInPolygon(pt,polys[j],{ignoreBoundary:false})){
-          const prop=polys[j].properties||{};
-          points[i].props.tambon  = prop[FIELD_TAMBON]   ?? null;
-          points[i].props.amphoe  = prop[FIELD_AMPHOE]   ?? null;
-          points[i].props.changwat= prop[FIELD_CHANGWAT] ?? null;
-          found=true; hit++; break;
+    function refreshMarkers(){
+      cluster.clearLayers();
+      points.forEach(p => {
+        if (!p.marker){
+          const m = L.circleMarker([p.lat, p.lon], {radius:5, weight:1, color:'#1e90ff', fillColor:'#1e90ff', fillOpacity:0.9});
+          m.bindPopup(popupHtmlForPoint(p));
+          m.on('popupopen', (ev)=>{
+            const btn = ev.popup._contentNode.querySelector('button[data-del-marker]');
+            if (btn) btn.addEventListener('click', ()=>{ removePointById(p.id); map.closePopup(); });
+          });
+          p.marker = m;
+        } else {
+          p.marker.setLatLng([p.lat, p.lon]);
+          p.marker.setPopupContent(popupHtmlForPoint(p));
         }
-      }
-      if(!found){ miss++; points[i].props.tambon=points[i].props.amphoe=points[i].props.changwat=null; }
+        cluster.addLayer(p.marker);
+      });
+
+      const enable = points.length > 0;
+      $('exportCsvBtn').disabled = !enable;
+      $('exportXlsxBtn').disabled = !enable;
+      $('exportGeojsonBtn').disabled = !enable;
+
+      renderTable();
     }
-    refreshMarkers();
-    toast(`Join เสร็จ: ตรง ${hit.toLocaleString()} / ไม่พบ ${miss.toLocaleString()}`);
+
+    function addPoint(lat, lon){
+      if (!isFinite(lat) || !isFinite(lon)) { toast('พิกัดไม่ถูกต้อง'); return; }
+      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) { toast('ช่วงพิกัดผิด (lat −90..90, lon −180..180)'); return; }
+      points.push({id: nextId++, lat, lon, props:{}});
+      refreshMarkers();
+      // auto join
+      if (geojsonPolygons) pointInPolygonJoin();
+    }
+
+    function updatePointCoord(id, newLat, newLon){
+      const p = points.find(pp=>pp.id===id);
+      if (!p) return;
+      const lat = (newLat===null)? p.lat : newLat;
+      const lon = (newLon===null)? p.lon : newLon;
+      if (!isFinite(lat) || !isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180){
+        toast('ค่าพิกัดไม่ถูกต้อง'); renderTable(); return;
+      }
+      p.lat = lat; p.lon = lon;
+      if (p.marker) p.marker.setLatLng([p.lat, p.lon]);
+      refreshMarkers();
+      // auto join
+      if (geojsonPolygons) pointInPolygonJoin();
+    }
+
+    function removePointById(id){
+      const idx = points.findIndex(p=>p.id===id);
+      if (idx === -1) return;
+      const p = points[idx];
+      if (p.marker){ cluster.removeLayer(p.marker); }
+      points.splice(idx,1);
+      refreshMarkers();
+      toast('ลบจุดแล้ว');
+      if (geojsonPolygons) pointInPolygonJoin();
+    }
+
+    // ===== Controls =====
+    function setAddMode(on){
+      addMode = !!on;
+      $('toggleAddModeBtn').textContent = addMode ? 'จบโหมดเพิ่มจากแผนที่' : 'เริ่มโหมดเพิ่มจากแผนที่';
+      if (addMode){ map.getContainer().classList.add('cursor-add'); toast('โหมดเพิ่ม: คลิกแผนที่แล้ว “ยืนยันเพิ่มจุด”'); }
+      else { map.getContainer().classList.remove('cursor-add'); }
+      if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
+    }
+    $('toggleAddModeBtn').addEventListener('click', ()=> setAddMode(!addMode));
+    $('clearPointsBtn').addEventListener('click', ()=>{ points = []; cluster.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); });
+
+    $('addNewRowBtn').addEventListener('click', ()=>{
+      const lat = toNumberMaybe($('newLat').value);
+      const lon = toNumberMaybe($('newLon').value);
+      addPoint(lat, lon);
+      $('newLat').value = ''; $('newLon').value = '';
+    });
+
+    map.on('click', (e)=>{
+      if (!addMode) return;
+      if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
+      tempAddMarker = L.marker(e.latlng, {opacity:0.9}).addTo(map);
+
+      const lat = e.latlng.lat, lon = e.latlng.lng;
+      const html = `
+        <div><b>ยืนยันเพิ่มจุดนี้</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
+        <div style="margin-top:8px">
+          <button class="btn" id="confirmAddBtn">ยืนยันเพิ่มจุด</button>
+        </div>`;
+      tempAddMarker.bindPopup(html);
+
+      tempAddMarker.once('popupopen', ()=>{
+        const ok = document.getElementById('confirmAddBtn');
+        if (ok){
+          ok.addEventListener('click', ()=>{
+            addPoint(lat, lon);
+            toast(`เพิ่มจุด: ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+            if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
+          }, { once: true });
+        }
+      });
+
+      tempAddMarker.openPopup();
+    });
+
+    // Excel/CSV upload
+    $('excelInput').addEventListener('change', async (ev)=>{
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      try{
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, {type:'array'});
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true});
+        const hasHeader = $('hasHeader').checked;
+        let added = 0;
+        rows.forEach((r,i)=>{
+          if (!Array.isArray(r) || r.length < 2) return;
+          if (hasHeader && i===0) return;
+          const lat = toNumberMaybe(r[0]);
+          const lon = toNumberMaybe(r[1]);
+          if (isFinite(lat) && isFinite(lon)){ addPoint(lat, lon); added++; }
+        });
+        $('excelPreview').textContent = added>0 ? `เพิ่มจากไฟล์: ${added.toLocaleString()} จุด` : 'ไม่พบพิกัดที่อ่านได้';
+        toast(`เพิ่มจุดจากไฟล์: ${added.toLocaleString()} จุด`);
+      }catch(err){
+        console.error(err); toast('อ่านไฟล์ล้มเหลว: ' + (err?.message||err));
+      }
+    });
+
+    // ===== Load GeoJSON from repo (fixed path) =====
+    async function loadGeoJSONFromRepo(path=GEOJSON_PATH){
+      try{
+        const res = await fetch(path, { cache: 'no-store' });
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const parsed = await res.json();
+        if (!parsed || parsed.type!=='FeatureCollection' || !Array.isArray(parsed.features) || !parsed.features.length) throw new Error('ไม่ใช่ FeatureCollection หรือไม่มี feature');
+        const polyFeats = parsed.features.filter(f=>{ const g=f&&f.geometry; return g&&(g.type==='Polygon'||g.type==='MultiPolygon'); });
+        if(!polyFeats.length) throw new Error('ไม่พบ Polygon/MultiPolygon');
+
+        geojsonPolygons = { type:'FeatureCollection', features: polyFeats };
+        polygonLayer.clearLayers(); polygonLayer.addData(geojsonPolygons);
+        // เปิดบรรทัดนี้ถ้าอยากซูมเข้าตาม polygon:
+        // map.fitBounds(polygonLayer.getBounds());
+        polyBBoxes = geojsonPolygons.features.map(f=>turf.bbox(f));
+        toast('โหลด GeoJSON สำเร็จ');
+        if (points.length) pointInPolygonJoin(); // มีจุดอยู่แล้วก็ join ให้เลย
+      }catch(err){
+        console.error(err);
+        toast('โหลด GeoJSON ไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson');
+      }
+    }
+
+    // ===== Join (point in polygon) — ใช้ฟิลด์คงที่ =====
+    function pointInPolygonJoin(){
+      if (!geojsonPolygons || !geojsonPolygons.features?.length){ toast('ยังไม่มีขอบเขต'); return; }
+      if (!points.length){ return; }
+
+      const polys=geojsonPolygons.features;
+      let hit=0, miss=0;
+      points.forEach(p=>{ p.props=p.props||{}; });
+      const ptCache=points.map(p=>turf.point([p.lon,p.lat]));
+
+      for(let i=0;i<points.length;i++){
+        const pt=ptCache[i]; let found=false;
+        for(let j=0;j<polys.length;j++){
+          const bb=polyBBoxes[j]; const x=points[i].lon, y=points[i].lat;
+          if(x<bb[0]||x>bb[2]||y<bb[1]||y>bb[3]) continue;
+          if(turf.booleanPointInPolygon(pt,polys[j],{ignoreBoundary:false})){
+            const prop=polys[j].properties||{};
+            points[i].props.tambon   = prop[FIELD_TAMBON]   ?? null;
+            points[i].props.amphoe   = prop[FIELD_AMPHOE]   ?? null;
+            points[i].props.changwat = prop[FIELD_CHANGWAT] ?? null;
+            found=true; hit++; break;
+          }
+        }
+        if(!found){ miss++; points[i].props.tambon=points[i].props.amphoe=points[i].props.changwat=null; }
+      }
+      refreshMarkers();
+      // แจ้งผลแบบเบา ๆ
+      // toast(`Join: ตรง ${hit.toLocaleString()} / ไม่พบ ${miss.toLocaleString()}`);
+    }
+
+    // ปุ่ม Re-Join
+    $('rejoinBtn').addEventListener('click', pointInPolygonJoin);
+
+    // เริ่มทำงาน
+    loadGeoJSONFromRepo();
+  });
+
+  // ===== Export =====
+  function collectRows(){
+    const header = ['lat','lon','tambon','amphoe','changwat'];
+    const data = (window.__points__ || []).map(p=>{
+      const props=p.props||{};
+      return [formatLatLon(p.lat), formatLatLon(p.lon), props.tambon??'', props.amphoe??'', props.changwat??''];
+    });
+    return {header, data};
   }
+  // เก็บตัวแปร points ไว้บน window เพื่อเรียกใช้จาก export (เพราะ scope อยู่ใน DOMContentLoaded)
+  (function(){
+    const _desc = Object.getOwnPropertyDescriptor(window, '__points__');
+    if(!_desc || _desc.configurable){
+      Object.defineProperty(window, '__points__', {
+        get(){ return window.__pointsRef || []; },
+        set(v){ window.__pointsRef = v; }
+      });
+    }
+    // hook จากฟังก์ชั่นภายในเมื่อ DOMContentLoaded สร้างแล้ว
+    const _origAddEvent = document.addEventListener;
+    document.addEventListener = function(type, cb, opts){
+      if(type==='DOMContentLoaded'){
+        const wrapped = function(ev){
+          // ดึงตัวแปร points จาก closure ของ cb โดยผูกผ่าน window เพื่อใช้กับ export
+          // เทคนิค: จะสร้าง Proxy ตอนท้ายของ cb ผ่านการ override Function.prototype.toString เป็น overkill
+          cb(ev);
+          // หา reference จาก last map of globals (ง่ายสุด: ดึงจาก table DOM)
+          // เพื่อความเสถียร ให้ใส่ hook ลงใน window ที่ export ใช้
+          // จะรีเฟรช __points__ ทุก 500ms ช่วงสั้น ๆ เฉพาะตอนแรก
+          let tries = 0;
+          const timer = setInterval(()=>{
+            const tbody = document.getElementById('pointsTableBody');
+            if (tbody){
+              // สร้าง snapshot points ใหม่จาก DOM เป็น fallback หากไม่พบตัวแปรจริง
+              // แต่ในไฟล์นี้ เราจะอาศัยการอัปเดต __points__ ผ่าน event ในส่วนในหน้า (เรียบง่าย)
+              clearInterval(timer);
+            }
+            if(++tries>6) clearInterval(timer);
+          }, 500);
+        };
+        return _origAddEvent.call(document, type, wrapped, opts);
+      }
+      return _origAddEvent.call(document, type, cb, opts);
+    };
+  })();
 
-  // สั่ง Join อัตโนมัติทุกครั้งที่มีการเพิ่มจุด (ถ้าต้องการให้กดเอง ให้คอมเมนต์บรรทัดใน addPoint)
-  // ที่นี่เลือกให้ผู้ใช้กดเองโดยคลิกที่แผนที่เพื่อเพิ่ม และค่าจะไปแสดงในตารางเมื่อกดปุ่มนี้:
-  // สามารถเพิ่มปุ่ม Join เองได้ถ้าต้องการ
+  // ปุ่ม Export (ใช้หลัง DOM พร้อมแล้ว)
+  window.addEventListener('load', ()=>{
+    // export CSV
+    document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
+      const rows = [];
+      // รวบรวมจากตารางแทน เพื่อไม่ผูกกับภายใน: อ่านตรง ๆ
+      const body = document.getElementById('pointsTableBody');
+      const trs = Array.from(body.querySelectorAll('tr')).filter(tr=>!tr.classList.contains('row-editor'));
+      rows.push(['lat','lon','tambon','amphoe','changwat']);
+      trs.forEach(tr=>{
+        const tds = tr.querySelectorAll('td');
+        const lat = tds[1]?.querySelector('input')?.value ?? '';
+        const lon = tds[2]?.querySelector('input')?.value ?? '';
+        const tambon = tds[3]?.textContent?.trim() ?? '';
+        const amphoe = tds[4]?.textContent?.trim() ?? '';
+        const changwat = tds[5]?.textContent?.trim() ?? '';
+        rows.push([lat,lon,tambon,amphoe,changwat]);
+      });
+      const csv = rows.map(r=>r.map(v=>{
+        const s = (v===null||v===undefined)?'':String(v);
+        return s.includes(',')? '"'+s.replace(/"/g,'""')+'"' : s;
+      }).join(',')).join('\n');
+      download('points_joined.csv', csv, 'text/csv');
+    });
 
-  // โหลด polygon แล้วพร้อมใช้งาน
-  loadGeoJSONFromRepo();
+    // export XLSX
+    document.getElementById('exportXlsxBtn').addEventListener('click', ()=>{
+      const rows = [];
+      const body = document.getElementById('pointsTableBody');
+      const trs = Array.from(body.querySelectorAll('tr')).filter(tr=>!tr.classList.contains('row-editor'));
+      rows.push(['lat','lon','tambon','amphoe','changwat']);
+      trs.forEach(tr=>{
+        const tds = tr.querySelectorAll('td');
+        const lat = tds[1]?.querySelector('input')?.value ?? '';
+        const lon = tds[2]?.querySelector('input')?.value ?? '';
+        const tambon = tds[3]?.textContent?.trim() ?? '';
+        const amphoe = tds[4]?.textContent?.trim() ?? '';
+        const changwat = tds[5]?.textContent?.trim() ?? '';
+        rows.push([lat,lon,tambon,amphoe,changwat]);
+      });
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'points_joined');
+      const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+      download('points_joined.xlsx', out, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    });
 
-  // เมื่อมีการเพิ่ม/แก้ไขจุด ให้ Join อัตโนมัติเล็กน้อย (ถ้า polygon พร้อม)
-  const _origAddPoint = addPoint;
-  addPoint = function(lat,lon){ _origAddPoint(lat,lon); if(geojsonPolygons){ pointInPolygonJoin(); } };
-
-  const _origUpdate = updatePointCoord;
-  updatePointCoord = function(id, newLat, newLon){ _origUpdate(id,newLat,newLon); if(geojsonPolygons){ pointInPolygonJoin(); } };
+    // export GeoJSON
+    document.getElementById('exportGeojsonBtn').addEventListener('click', ()=>{
+      const body = document.getElementById('pointsTableBody');
+      const trs = Array.from(body.querySelectorAll('tr')).filter(tr=>!tr.classList.contains('row-editor'));
+      const feats = trs.map(tr=>{
+        const tds = tr.querySelectorAll('td');
+        const lat = parseFloat(tds[1]?.querySelector('input')?.value ?? 'NaN');
+        const lon = parseFloat(tds[2]?.querySelector('input')?.value ?? 'NaN');
+        const tambon = tds[3]?.textContent?.trim() || null;
+        const amphoe = tds[4]?.textContent?.trim() || null;
+        const changwat = tds[5]?.textContent?.trim() || null;
+        if (!isFinite(lat) || !isFinite(lon)) return null;
+        return {
+          type:'Feature',
+          geometry:{type:'Point', coordinates:[lon, lat]},
+          properties:{ lat, lon, tambon, amphoe, changwat }
+        };
+      }).filter(Boolean);
+      const fc = {type:'FeatureCollection', features:feats};
+      download('points_joined.geojson', JSON.stringify(fc), 'application/geo+json');
+    });
+  });
   </script>
 </body>
 </html>
