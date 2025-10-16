@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Leaflet – TH Points • จำกัดพื้นที่ + เส้นขอบประเทศ</title>
+  <title>Leaflet – TH Points • Responsive + Icon Actions</title>
 
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -24,51 +24,87 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
-    :root{--bg:#0b1020;--card:#10182b;--muted:#a9b0c0;--accent:#1e90ff}
+    :root{--bg:#0b1020;--card:#10182b;--muted:#a9b0c0;--accent:#1e90ff;--danger:#e35b5b}
     html,body{height:100%;margin:0;font-family:'Sarabun',system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
     body{background:#0b0f1a;color:#f3f6fb}
-    .app{display:grid;grid-template-columns:460px 1fr;gap:14px;height:100%;padding:14px;box-sizing:border-box}
+
+    /* Layout */
+    .app{
+      display:grid;
+      grid-template-columns: 460px 1fr;
+      grid-template-areas: "left right";
+      gap:14px; height:100%; padding:14px; box-sizing:border-box;
+    }
     .panel{background:var(--card);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);padding:14px;display:flex;flex-direction:column;min-height:0}
+    .panel-left{grid-area:left; min-width:0}
+    .panel-map{grid-area:right}
+    #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden}
+
+    /* Typography & UI */
     h1{font-size:18px;margin:.2rem 0 10px;font-weight:700}
     h2{font-size:14px;margin:16px 0 8px;color:var(--muted);font-weight:700;letter-spacing:.2px}
     label{font-size:13px;color:#cfd6e6;margin-bottom:6px;display:block}
+
     .btn{background:linear-gradient(180deg,#1e90ff,#1475d6);border:none;color:white;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:700}
     .btn:disabled{opacity:.5;cursor:not-allowed}
     .btn-outline{background:transparent;border:1px solid #2a3354;color:#d6e5ff}
     .btn-danger{background:transparent;border:1px solid #703a3a;color:#ffbcbc}
-    .muted{color:var(--muted);font-size:12px}
+    .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;border:1px solid #2a3354;background:#0e162b;color:#d6e5ff;font-size:18px;line-height:1}
+    .btn-icon.danger{border-color:#5a2a2a;color:#ffcccc}
+
     .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden}
-    .badge{display:inline-flex;align-items:center;gap:6px;background:#0f1a33;border:1px solid #233056;color:#b7c3de;padding:4px 8px;border-radius:999px;font-size:11px}
     .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .badge{display:inline-flex;align-items:center;gap:6px;background:#0f1a33;border:1px solid #233056;color:#b7c3de;padding:4px 8px;border-radius:999px;font-size:11px}
     .dot{inline-size:10px;block-size:10px;border-radius:50%;background:#1e90ff;border:1px solid #fff3}
     .poly{inline-size:14px;block-size:10px;border:1px solid #64ffda;background:linear-gradient(0deg,#64ffda22,#64ffda22)}
     .divider{height:1px;background:#243056;margin:10px 0}
     .small{font-size:11px;color:#9fb0d0}
+    .note{font-size:12px;color:#a9b0c0}
     .toast{position:fixed;right:16px;bottom:16px;background:#111a2e;border:1px solid #233056;padding:10px 14px;border-radius:10px;color:#dbe6ff;box-shadow:0 6px 24px rgba(0,0,0,.35);z-index:9999}
+
+    /* Table */
     .tableWrap{min-height:220px;max-height:360px;overflow:auto;border:1px solid #243056;border-radius:10px;background:#0e1526}
     table{width:100%;border-collapse:collapse;font-size:12.5px}
     thead th{position:sticky;top:0;background:#101a34;color:#e8f0ff;border-bottom:1px solid #243056;padding:8px;font-weight:700;text-align:left}
     tbody td{border-bottom:1px solid #1d2846;padding:6px 8px;color:#dbe6ff;vertical-align:middle}
     tbody tr:hover{background:#0f1830}
+    .t-act{width:60px;text-align:center}
     .t-num{width:44px}
-    .t-actions{width:86px;text-align:right}
     .pill{display:inline-block;padding:2px 6px;border-radius:999px;border:1px solid #2b3a63;background:#0d1833;font-size:11px}
-    .countRow{display:flex;justify-content:space-between;align-items:center;margin-top:6px;color:#9fb0d0;font-size:12px}
-    .note{font-size:12px;color:#a9b0c0}
     input[type="number"].celled{width:110px;background:#0e1526;border:1px solid #1f2942;color:#eaf1ff;padding:6px 8px;border-radius:8px;outline:none}
     .row-editor{background:#0f1933}
     .row-editor td{position:sticky; top:32px; background:#0f1933; border-bottom:1px solid #233056;}
-    @media (max-width: 980px){
-      .app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
-      #map{min-height:420px}
+
+    /* Responsive */
+    @media (max-width: 1024px){
+      .app{grid-template-columns: 380px 1fr;}
+      #map{min-height:520px}
+    }
+    @media (max-width: 768px){
+      .app{
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "right"
+          "left";
+      }
+      #map{min-height:400px}
+    }
+    @media (max-width: 420px){
+      #map{min-height:360px}
+      input[type="number"].celled{width:100px}
+      .btn{padding:8px 10px}
+      .btn-icon{width:30px;height:30px}
     }
   </style>
 </head>
 <body>
   <div class="app">
-    <div class="panel" style="min-width:0">
-      <h1>Thailand Map • จำกัดพื้นที่ + เส้นขอบเขตประเทศไทย</h1>
+    <!-- Map FIRST on mobile -->
+    <div id="map" class="panel panel-map"></div>
+
+    <!-- Controls & Table -->
+    <div class="panel panel-left">
+      <h1>Thailand Map • จำกัดพื้นที่ + เส้นขอบประเทศ</h1>
       <div class="legend">
         <span class="badge"><span class="dot"></span> จุด (Lat/Lon)</span>
         <span class="badge"><span class="poly"></span> ใช้ขอบเขตจาก subdistricts.geojson (ไม่แสดงบนแผนที่)</span>
@@ -84,34 +120,37 @@
 
       <div class="divider"></div>
 
-      <h2>ตารางจุด (แก้ไขในตาราง + เพิ่มแถวใหม่)</h2>
+      <h2>ตารางจุด</h2>
       <div class="tableWrap">
         <table>
           <thead>
             <tr>
+              <th class="t-act">ทำรายการ</th>
               <th class="t-num">#</th>
               <th>Lat</th>
               <th>Lon</th>
               <th>ตำบล</th>
               <th>อำเภอ</th>
               <th>จังหวัด</th>
-              <th class="t-actions">ลบ</th>
             </tr>
           </thead>
           <tbody id="pointsTableBody">
+            <!-- Editor row (new point) -->
             <tr class="row-editor">
+              <td class="t-act">
+                <button class="btn-icon" id="addNewRowBtn" title="เพิ่มแถว">+</button>
+              </td>
               <td class="t-num"><span class="pill">ใหม่</span></td>
               <td><input id="newLat" class="celled" type="number" step="any" placeholder="13.7563"></td>
               <td><input id="newLon" class="celled" type="number" step="any" placeholder="100.5018"></td>
-              <td colspan="3" class="small">พิมพ์ Lat/Lon แล้วกด “เพิ่มแถว” หรือใช้โหมดเพิ่มจากแผนที่</td>
-              <td class="t-actions"><button class="btn" id="addNewRowBtn">เพิ่มแถว</button></td>
+              <td colspan="3" class="small">พิมพ์ Lat/Lon แล้วกด “+” หรือใช้โหมดเพิ่มจากแผนที่</td>
             </tr>
           </tbody>
         </table>
       </div>
       <div class="countRow">
         <span>จำนวนจุดทั้งหมด: <span id="pointCount">0</span></span>
-        <span class="note">คลิกจุดบนแผนที่เพื่อลบได้</span>
+        <span class="note">แตะจุดบนแผนที่เพื่อลบได้</span>
       </div>
 
       <div class="divider"></div>
@@ -138,8 +177,6 @@
         <div class="small">Static • GitHub Pages • Leaflet/Turf/SheetJS • Sarabun</div>
       </div>
     </div>
-
-    <div id="map" class="panel"></div>
   </div>
 
   <div id="toast" class="toast" style="display:none"></div>
@@ -159,10 +196,10 @@
   const GEOJSON_PATH   = 'subdistricts.geojson';  // polygon ตำบล (ไม่แสดง)
   const TH_BORDER_PATH = 'th_boundary.geojson';   // ขอบประเทศ (เส้นสีดำ)
 
-  // ===== Map init after DOM ready =====
   document.addEventListener('DOMContentLoaded', () => {
+    // ===== Map =====
     const map = L.map('map', {preferCanvas:true});
-    const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]); // ครอบประเทศไทยโดยคร่าว
+    const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
     map.fitBounds(thBounds);
 
     const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
@@ -172,24 +209,20 @@
     L.control.scale().addTo(map);
     setTimeout(()=>map.invalidateSize(true), 300);
 
-    // Layers
-    // ไม่แสดง subdistrict polygons บนแผนที่
-    // แสดงเฉพาะ "เส้นขอบประเทศไทย" สีดำ
+    // Border layer (black outline)
     const thBorderLayer = L.geoJSON(null,{style:{color:'#000', weight:2, fill:false}}).addTo(map);
 
+    // Marker cluster
     const cluster = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
     map.addLayer(cluster);
 
-    // State
+    // ===== State =====
     let points=[]; let nextId=1;
-    let subdistrictPolys=null;  // FeatureCollection (ใช้ตรวจ + join)
-    let subdBBoxes=[];          // bbox ของแต่ละ polygon เร่งความเร็ว
-    let thBorderPolys=null;     // FeatureCollection ขอบประเทศ (ใช้ตรวจ)
-    let thBBoxes=[];
-
+    let subdistrictPolys=null, subdBBoxes=[];
+    let thBorderPolys=null, thBBoxes=[];
     let addMode=false; let tempAddMarker=null;
 
-    // ===== Core render =====
+    // ===== Table rendering =====
     function renderTable(){
       const tb = $('pointsTableBody');
       const editor = tb.querySelector('.row-editor');
@@ -199,15 +232,15 @@
       points.forEach((p,idx)=>{
         const tr = document.createElement('tr');
         tr.innerHTML = `
+          <td class="t-act">
+            <button class="btn-icon danger" data-del="${p.id}" title="ลบ">✕</button>
+          </td>
           <td class="t-num"><span class="pill">${idx+1}</span></td>
           <td><input class="celled" type="number" step="any" data-edit-lat="${p.id}" value="${formatLatLon(p.lat)}"></td>
           <td><input class="celled" type="number" step="any" data-edit-lon="${p.id}" value="${formatLatLon(p.lon)}"></td>
           <td>${p.props?.tambon ?? ''}</td>
           <td>${p.props?.amphoe ?? ''}</td>
-          <td>${p.props?.changwat ?? ''}</td>
-          <td class="t-actions">
-            <button class="btn btn-danger" data-del="${p.id}" title="ลบแถวนี้">ลบ</button>
-          </td>`;
+          <td>${p.props?.changwat ?? ''}</td>`;
         tb.appendChild(tr);
       });
 
@@ -276,7 +309,6 @@
     function isInsideThailand(lat, lon){
       if (!thBorderPolys) return false;
       const pt = turf.point([lon, lat]);
-      // bbox pre-filter
       for (let j=0;j<thBorderPolys.features.length;j++){
         const bb = thBBoxes[j];
         if (lon < bb[0] || lon > bb[2] || lat < bb[1] || lat > bb[3]) continue;
@@ -309,18 +341,9 @@
     function addPointWithChecks(lat, lon){
       if (!isFinite(lat) || !isFinite(lon)) { toast('พิกัดไม่ถูกต้อง'); return; }
       if (!thBorderPolys || !subdistrictPolys){ toast('ยังโหลดขอบเขตไม่เสร็จ'); return; }
-
-      // 1) ต้องอยู่ในประเทศไทย
-      if (!isInsideThailand(lat, lon)){
-        toast('พิกัดอยู่นอกประเทศไทย — ไม่สามารถเพิ่มจุดได้'); return;
-      }
-      // 2) ต้องอยู่ใน polygon ที่แนบ (subdistricts.geojson)
+      if (!isInsideThailand(lat, lon)){ toast('พิกัดอยู่นอกประเทศไทย — ไม่สามารถเพิ่มจุดได้'); return; }
       const props = findSubdistrictProps(lat, lon);
-      if (!props){
-        toast('พิกัดอยู่นอกขอบเขต GeoJSON — ไม่สามารถเพิ่มจุดได้'); return;
-      }
-
-      // ผ่านทั้งสองชั้น → เพิ่มจุด + set props
+      if (!props){ toast('พิกัดอยู่นอกขอบเขต GeoJSON — ไม่สามารถเพิ่มจุดได้'); return; }
       const p = {id: nextId++, lat, lon, props};
       points.push(p);
       refreshMarkers();
@@ -332,12 +355,9 @@
       const lat = (newLat===null)? p.lat : newLat;
       const lon = (newLon===null)? p.lon : newLon;
       if (!isFinite(lat) || !isFinite(lon)){ toast('ค่าพิกัดไม่ถูกต้อง'); renderTable(); return; }
-
-      // ต้องยังคงอยู่ในไทย + อยู่ใน polygon
-      if (!isInsideThailand(lat, lon)){ toast('อยู่นอกประเทศไทย — ยกเลิกการแก้ไขพิกัด'); renderTable(); return; }
+      if (!isInsideThailand(lat, lon)){ toast('อยู่นอกประเทศไทย — ยกเลิก'); renderTable(); return; }
       const props = findSubdistrictProps(lat, lon);
-      if (!props){ toast('อยู่นอกขอบเขต GeoJSON — ยกเลิกการแก้ไขพิกัด'); renderTable(); return; }
-
+      if (!props){ toast('อยู่นอกขอบเขต GeoJSON — ยกเลิก'); renderTable(); return; }
       p.lat = lat; p.lon = lon; p.props = props;
       if (p.marker) p.marker.setLatLng([p.lat, p.lon]);
       refreshMarkers();
@@ -364,7 +384,6 @@
     $('toggleAddModeBtn').addEventListener('click', ()=> setAddMode(!addMode));
     $('clearPointsBtn').addEventListener('click', ()=>{ points = []; cluster.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); });
     $('rejoinBtn').addEventListener('click', ()=>{
-      // re-evaluate props for all points (เผื่อไฟล์ polygon อัปเดต)
       if (!subdistrictPolys){ toast('ยังไม่มีขอบเขต'); return; }
       let hit=0, miss=0;
       points.forEach(p=>{
@@ -375,7 +394,7 @@
       toast(`Join ใหม่: ตรง ${hit} / ไม่พบ ${miss}`);
     });
 
-    // เพิ่มแถวด้วยมือ
+    // Editor row (+)
     $('addNewRowBtn').addEventListener('click', ()=>{
       const lat = toNumberMaybe($('newLat').value);
       const lon = toNumberMaybe($('newLon').value);
@@ -383,34 +402,29 @@
       $('newLat').value = ''; $('newLon').value = '';
     });
 
-    // คลิกจากแผนที่
+    // Map click add
     map.on('click', (e)=>{
       if (!addMode) return;
       if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
       tempAddMarker = L.marker(e.latlng, {opacity:0.9}).addTo(map);
-
       const lat = e.latlng.lat, lon = e.latlng.lng;
       const html = `
         <div><b>ยืนยันเพิ่มจุดนี้</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
-        <div style="margin-top:8px">
-          <button class="btn" id="confirmAddBtn">ยืนยันเพิ่มจุด</button>
-        </div>`;
+        <div style="margin-top:8px"><button class="btn" id="confirmAddBtn">ยืนยันเพิ่มจุด</button></div>`;
       tempAddMarker.bindPopup(html);
-
       tempAddMarker.once('popupopen', ()=>{
         const ok = document.getElementById('confirmAddBtn');
         if (ok){
           ok.addEventListener('click', ()=>{
-            addPointWithChecks(lat, lon); // ใช้ตัวตรวจเงื่อนไข
+            addPointWithChecks(lat, lon);
             if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
           }, { once: true });
         }
       });
-
       tempAddMarker.openPopup();
     });
 
-    // ===== Excel/CSV upload (ตรวจเงื่อนไขด้วย) =====
+    // Excel/CSV upload (+ constraints)
     $('excelInput').addEventListener('change', async (ev)=>{
       const file = ev.target.files && ev.target.files[0];
       if (!file) return;
@@ -438,7 +452,7 @@
       }
     });
 
-    // ===== Export =====
+    // Exports
     function exportCollectRows(){
       const rows = [];
       const body = document.getElementById('pointsTableBody');
@@ -446,17 +460,16 @@
       rows.push(['lat','lon','tambon','amphoe','changwat']);
       trs.forEach(tr=>{
         const tds = tr.querySelectorAll('td');
-        const lat = tds[1]?.querySelector('input')?.value ?? '';
-        const lon = tds[2]?.querySelector('input')?.value ?? '';
-        const tambon = tds[3]?.textContent?.trim() ?? '';
-        const amphoe = tds[4]?.textContent?.trim() ?? '';
-        const changwat = tds[5]?.textContent?.trim() ?? '';
+        const lat = tds[2]?.querySelector('input')?.value ?? '';
+        const lon = tds[3]?.querySelector('input')?.value ?? '';
+        const tambon = tds[4]?.textContent?.trim() ?? '';
+        const amphoe = tds[5]?.textContent?.trim() ?? '';
+        const changwat = tds[6]?.textContent?.trim() ?? '';
         rows.push([lat,lon,tambon,amphoe,changwat]);
       });
       return rows;
     }
-
-    document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
+    $('exportCsvBtn').addEventListener('click', ()=>{
       const rows = exportCollectRows();
       const csv = rows.map(r=>r.map(v=>{
         const s = (v===null||v===undefined)?'':String(v);
@@ -464,8 +477,7 @@
       }).join(',')).join('\n');
       download('points_joined.csv', csv, 'text/csv');
     });
-
-    document.getElementById('exportXlsxBtn').addEventListener('click', ()=>{
+    $('exportXlsxBtn').addEventListener('click', ()=>{
       const rows = exportCollectRows();
       const ws = XLSX.utils.aoa_to_sheet(rows);
       const wb = XLSX.utils.book_new();
@@ -473,23 +485,13 @@
       const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
       download('points_joined.xlsx', out, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     });
-
-    document.getElementById('exportGeojsonBtn').addEventListener('click', ()=>{
-      const body = document.getElementById('pointsTableBody');
-      const trs = Array.from(body.querySelectorAll('tr')).filter(tr=>!tr.classList.contains('row-editor'));
-      const feats = trs.map(tr=>{
-        const tds = tr.querySelectorAll('td');
-        const lat = parseFloat(tds[1]?.querySelector('input')?.value ?? 'NaN');
-        const lon = parseFloat(tds[2]?.querySelector('input')?.value ?? 'NaN');
-        const tambon = tds[3]?.textContent?.trim() || null;
-        const amphoe = tds[4]?.textContent?.trim() || null;
-        const changwat = tds[5]?.textContent?.trim() || null;
+    $('exportGeojsonBtn').addEventListener('click', ()=>{
+      const rows = exportCollectRows();
+      const feats = rows.slice(1).map(r=>{
+        const lat = parseFloat(r[0]), lon = parseFloat(r[1]);
+        const tambon = r[2] || null, amphoe = r[3] || null, changwat = r[4] || null;
         if (!isFinite(lat) || !isFinite(lon)) return null;
-        return {
-          type:'Feature',
-          geometry:{type:'Point', coordinates:[lon, lat]},
-          properties:{ lat, lon, tambon, amphoe, changwat }
-        };
+        return { type:'Feature', geometry:{type:'Point', coordinates:[lon, lat]}, properties:{ lat, lon, tambon, amphoe, changwat } };
       }).filter(Boolean);
       const fc = {type:'FeatureCollection', features:feats};
       download('points_joined.geojson', JSON.stringify(fc), 'application/geo+json');
@@ -501,20 +503,17 @@
       if(!res.ok) throw new Error('subdistricts HTTP '+res.status);
       const gj = await res.json();
       if (!gj || gj.type!=='FeatureCollection' || !Array.isArray(gj.features) || !gj.features.length) throw new Error('subdistricts ไม่ถูกต้อง');
-      // เก็บไว้ใช้งาน (ไม่แสดงบนแผนที่)
       const polyFeats = gj.features.filter(f=>{ const g=f&&f.geometry; return g && (g.type==='Polygon' || g.type==='MultiPolygon'); });
       subdistrictPolys = {type:'FeatureCollection', features: polyFeats};
       subdBBoxes = subdistrictPolys.features.map(f=>turf.bbox(f));
     }
-
     async function loadThailandBorder(path=TH_BORDER_PATH){
       const res = await fetch(path, { cache: 'no-store' });
       if(!res.ok) throw new Error('th_border HTTP '+res.status);
       const gj = await res.json();
       if (!gj || gj.type!=='FeatureCollection' || !Array.isArray(gj.features) || !gj.features.length) throw new Error('th_border ไม่ถูกต้อง');
-      thBorderPolys = gj;
-      thBBoxes = thBorderPolys.features.map(f=>turf.bbox(f));
-      thBorderLayer.addData(thBorderPolys); // แสดงเฉพาะ "เส้น" สีดำ
+      thBorderPolys = gj; thBBoxes = thBorderPolys.features.map(f=>turf.bbox(f));
+      thBorderLayer.addData(thBorderPolys); // draw black outline only
     }
 
     (async()=>{
