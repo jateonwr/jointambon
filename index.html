@@ -30,9 +30,7 @@
 
     /* Layout */
     .app{
-      display:grid;
-      grid-template-columns: 460px 1fr;
-      grid-template-areas: "left right";
+      display:grid; grid-template-columns:460px 1fr; grid-template-areas:"left right";
       gap:14px; height:100%; padding:14px; box-sizing:border-box;
     }
     .panel{background:var(--card);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);padding:14px;display:flex;flex-direction:column;min-height:0}
@@ -56,10 +54,7 @@
     .toast{position:fixed;right:16px;bottom:16px;background:#111a2e;border:1px solid #233056;padding:10px 14px;border-radius:10px;color:#dbe6ff;box-shadow:0 6px 24px rgba(0,0,0,.35);z-index:9999}
 
     /* Header bar for table controls */
-    .bar{
-      display:flex; align-items:center; justify-content:space-between;
-      gap:10px; margin:6px 0 8px;
-    }
+    .bar{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:6px 0 8px;}
     .bar-left{display:flex;align-items:center;gap:10px}
     .bar-right{display:flex;align-items:center;gap:8px}
 
@@ -76,50 +71,52 @@
     .row-editor{background:#0f1933}
     .row-editor td{position:sticky; top:32px; background:#0f1933; border-bottom:1px solid #233056;}
 
-    /* Collapsible (details/summary) */
+    /* Collapser (compact) */
     details.collapser{
-      border:1px solid #243056; border-radius:10px; background:#0e1526; padding:10px 12px; margin:10px 0;
+      border:1px solid #243056; border-radius:10px; background:#0e1526;
+      padding:8px 10px; margin:8px 0;
     }
     details.collapser > summary{
-      cursor:pointer; list-style:none; font-weight:700; color:#cfe0ff; display:flex; align-items:center; gap:8px;
+      cursor:pointer; list-style:none; font-weight:700; color:#cfe0ff;
+      display:flex; align-items:center; gap:8px; user-select:none;
     }
-    details.collapser > summary::before{
-      content:"▾"; display:inline-block; transform:rotate(0deg); transition:transform .15s ease;
-    }
+    details.collapser > summary::before{content:"▾"; display:inline-block; transform:rotate(0deg); transition:transform .15s ease; opacity:.8}
     details.collapser[open] > summary::before{ transform:rotate(180deg); }
-    .collapser-body{ margin-top:10px }
+    .summary-badges{display:flex; gap:6px; flex-wrap:wrap; margin-left:auto}
+    .badge{font-size:10.5px; color:#b8c7ea; background:#111a2e; border:1px solid #213055; border-radius:999px; padding:2px 6px; display:inline-flex; align-items:center; gap:6px}
+    .sw{width:12px;height:12px;border-radius:3px;border:1px solid #ffffff22}
 
-    /* Controls: label on top, input below */
-    .ctl{display:grid; grid-template-columns: 1fr 1fr; gap:14px}
-    .ctl .stack{display:flex; flex-direction:column; gap:6px}
+    .collapser-body{ margin-top:8px }
+
+    /* Compact controls: label top, input bottom; tiny gaps */
+    .ctl{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+    .stack{display:flex; flex-direction:column; gap:4px}
     .ctl label{font-size:12px; color:#b7c7ea}
-    .ctl input[type="color"],
-    .ctl input[type="number"]{background:#0e1526;border:1px solid #243056;border-radius:8px;padding:8px 10px;color:#eaf1ff}
-    .ctl input[type="color"]{height:40px; width:100%}
-    .ctl input[type="number"]{width:100%}
+    .ctl input[type="color"], .ctl input[type="number"]{
+      background:#0e1526;border:1px solid #243056;border-radius:8px;padding:6px 8px;color:#eaf1ff;
+    }
+    .ctl input[type="color"]{height:36px; width:100%}
+    .ctl input[type="number"]{height:36px; width:100%}
 
     /* Responsive */
     @media (max-width: 1024px){
-      .app{grid-template-columns: 380px 1fr;}
+      .app{grid-template-columns:380px 1fr;}
       #map{min-height:520px}
+      .ctl{grid-template-columns:repeat(3,1fr)}
     }
     @media (max-width: 768px){
-      .app{
-        grid-template-columns: 1fr;
-        grid-template-areas:
-          "right"
-          "left";
-      }
+      .app{grid-template-columns:1fr; grid-template-areas:"right" "left";}
       #map{min-height:400px}
       .bar{flex-direction:column; align-items:stretch}
       .bar-right{justify-content:space-between}
-      .ctl{grid-template-columns: 1fr}
+      .ctl{grid-template-columns:repeat(2,1fr)}
     }
     @media (max-width: 420px){
       #map{min-height:360px}
       input[type="number"].celled{width:100px}
       .btn{padding:8px 10px}
       .btn-icon{width:30px;height:30px}
+      .ctl{grid-template-columns:1fr}
     }
   </style>
 </head>
@@ -133,7 +130,7 @@
       <h1>Thailand Map • ขอบเขตที่เลือก + Satellite</h1>
       <div class="divider"></div>
 
-      <!-- Table header bar with buttons in-line -->
+      <!-- Table header bar -->
       <div class="bar">
         <div class="bar-left">
           <h2 style="margin:0">ตารางจุด</h2>
@@ -159,9 +156,7 @@
           </thead>
           <tbody id="pointsTableBody">
             <tr class="row-editor">
-              <td class="t-act">
-                <button class="btn-icon" id="addNewRowBtn" title="เพิ่มแถว">+</button>
-              </td>
+              <td class="t-act"><button class="btn-icon" id="addNewRowBtn" title="เพิ่มแถว">+</button></td>
               <td class="t-num"><span class="pill">ใหม่</span></td>
               <td><input id="newLat" class="celled" type="number" step="any" placeholder="13.7563"></td>
               <td><input id="newLon" class="celled" type="number" step="any" placeholder="100.5018"></td>
@@ -172,16 +167,14 @@
       </div>
 
       <div class="countRow" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:8px;color:#9fb0d0;font-size:12px">
-        <div>
-          จำนวนจุดทั้งหมด: <span id="pointCount">0</span>
-          <span class="note"> — แตะจุดบนแผนที่เพื่อลบได้</span>
-        </div>
-        <div>
-          <button class="btn btn-outline" id="clearPointsBtn">ล้างจุดทั้งหมด</button>
-        </div>
+        <div>จำนวนจุดทั้งหมด: <span id="pointCount">0</span><span class="note"> — แตะจุดบนแผนที่เพื่อลบได้</span></div>
+        <div><button class="btn btn-outline" id="clearPointsBtn">ล้างจุดทั้งหมด</button></div>
       </div>
-      <!-- อัปโหลดจุดจาก Excel/CSV (ซ่อน/แสดง) -->
-      <details class="collapser" id="uploadSection" open>
+
+      <div class="divider"></div>
+
+      <!-- อัปโหลดจุดจาก Excel/CSV (ซ่อนเป็น default) -->
+      <details class="collapser" id="uploadSection">
         <summary>อัปโหลดจุดจาก Excel/CSV</summary>
         <div class="collapser-body">
           <label class="small" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -195,14 +188,19 @@
           <div id="excelPreview" class="small" style="margin-top:6px;color:#b8c7ea"></div>
         </div>
       </details>
-      <div class="divider"></div>
 
-      <!-- ตัวเลือกสไตล์แผนที่ (ไม่มีตัวเลือกประเทศตามที่ขอ) -->
-      <details class="collapser" id="styleSection" open>
-        <summary>ตัวเลือกสไตล์แผนที่ (จุด / ขอบเขตที่เลือก)</summary>
+      <!-- ตัวเลือกสไตล์ (คอมแพค + ซ่อนเป็น default) -->
+      <details class="collapser" id="styleSection">
+        <summary>
+          ตัวเลือกสไตล์แผนที่
+          <span class="summary-badges">
+            <span class="badge"><span class="sw" id="bPointSw" style="background:#1e90ff"></span><span id="bPointColorText">#1e90ff</span></span>
+            <span class="badge">จุด <span id="bPointSize">5</span> px</span>
+            <span class="badge">เส้น <span id="bPolyWeight">2</span> px</span>
+          </span>
+        </summary>
         <div class="collapser-body">
           <div class="ctl">
-            <!-- จุด -->
             <div class="stack">
               <label for="pointColor">สีจุด</label>
               <input type="color" id="pointColor" value="#1e90ff">
@@ -211,8 +209,6 @@
               <label for="pointRadius">ขนาดจุด</label>
               <input type="number" id="pointRadius" min="1" max="20" step="1" value="5">
             </div>
-
-            <!-- ตำบลที่เลือก -->
             <div class="stack">
               <label for="polyColor">สีเส้นตำบลที่เลือก</label>
               <input type="color" id="polyColor" value="#888888">
@@ -265,39 +261,41 @@
 
     // Basemaps
     const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-    const satellite = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {maxZoom:19, attribution:'Imagery © Esri'}
-    );
-
+    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19, attribution:'Imagery © Esri'});
     const baseMaps = {'OSM':osmStd,'Satellite':satellite};
     L.control.layers(baseMaps, null, {collapsed:false, position:'topright'}).addTo(map);
 
-    // Scale (metric only)
+    // Scale
     L.control.scale({imperial:false, metric:true}).addTo(map);
-
-    // invalidate size after first paint
-    setTimeout(()=>map.invalidateSize(true), 300);
+    setTimeout(()=>map.invalidateSize(true),300);
 
     // Layers
     const thBorderLayer = L.geoJSON(null,{style:{color:'#000', weight:2, fill:false}}).addTo(map);
     const selectedPolysLayer = L.geoJSON(null,{style:{color:'#888', weight:2, fill:false}}).addTo(map);
-
     const cluster = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
     map.addLayer(cluster);
 
     // Overlays
-    L.control.layers(
-      null,
-      {'จุด': cluster,'ตำบล': selectedPolysLayer,'ประเทศไทย': thBorderLayer},
-      {collapsed:false, position:'topright'}
-    ).addTo(map);
+    L.control.layers(null, {'จุด': cluster,'ตำบล': selectedPolysLayer,'ประเทศไทย': thBorderLayer}, {collapsed:false, position:'topright'}).addTo(map);
 
     // ===== Style State =====
     let pointColor = '#1e90ff';
     let pointRadius = 5;
     let polyColor = '#888888';
     let polyWeight = 2;
+
+    // Badges updater (summary shows current)
+    const bPointSw = $('bPointSw');
+    const bPointColorText = $('bPointColorText');
+    const bPointSize = $('bPointSize');
+    const bPolyWeight = $('bPolyWeight');
+    function refreshBadges(){
+      if (bPointSw) bPointSw.style.background = pointColor;
+      if (bPointColorText) bPointColorText.textContent = pointColor.toLowerCase();
+      if (bPointSize) bPointSize.textContent = String(pointRadius);
+      if (bPolyWeight) bPolyWeight.textContent = String(polyWeight);
+    }
+    refreshBadges();
 
     // ===== State =====
     let points=[]; let nextId=1;
@@ -315,9 +313,7 @@
       points.forEach((p,idx)=>{
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td class="t-act">
-            <button class="btn-icon danger" data-del="${p.id}" title="ลบ">✕</button>
-          </td>
+          <td class="t-act"><button class="btn-icon danger" data-del="${p.id}" title="ลบ">✕</button></td>
           <td class="t-num"><span class="pill">${idx+1}</span></td>
           <td><input class="celled" type="number" step="any" data-edit-lat="${p.id}" value="${formatLatLon(p.lat)}"></td>
           <td><input class="celled" type="number" step="any" data-edit-lon="${p.id}" value="${formatLatLon(p.lon)}"></td>
@@ -330,24 +326,13 @@
       $('pointCount').textContent = points.length.toLocaleString();
 
       tb.querySelectorAll('button[data-del]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          const id = Number(btn.getAttribute('data-del'));
-          removePointById(id);
-        });
+        btn.addEventListener('click', ()=> removePointById(Number(btn.getAttribute('data-del'))));
       });
       tb.querySelectorAll('input[data-edit-lat]').forEach(inp=>{
-        inp.addEventListener('change', ()=>{
-          const id = Number(inp.getAttribute('data-edit-lat'));
-          const val = toNumberMaybe(inp.value);
-          updatePointCoord(id, val, null);
-        });
+        inp.addEventListener('change', ()=> updatePointCoord(Number(inp.getAttribute('data-edit-lat')), toNumberMaybe(inp.value), null));
       });
       tb.querySelectorAll('input[data-edit-lon]').forEach(inp=>{
-        inp.addEventListener('change', ()=>{
-          const id = Number(inp.getAttribute('data-edit-lon'));
-          const val = toNumberMaybe(inp.value);
-          updatePointCoord(id, null, val);
-        });
+        inp.addEventListener('change', ()=> updatePointCoord(Number(inp.getAttribute('data-edit-lon')), null, toNumberMaybe(inp.value)));
       });
     }
 
@@ -356,9 +341,7 @@
       return `Lat: ${formatLatLon(p.lat)}<br>
               Lon: ${formatLatLon(p.lon)}
               ${(props.tambon||props.amphoe||props.changwat)? `<br><b>ตำบล</b>: ${props.tambon ?? '-'}<br><b>อำเภอ</b>: ${props.amphoe ?? '-'}<br><b>จังหวัด</b>: ${props.changwat ?? '-'}`:''}
-              <div style="margin-top:8px">
-                <button class="btn btn-danger" data-del-marker="${p.id}">ลบจุดนี้</button>
-              </div>`;
+              <div style="margin-top:8px"><button class="btn btn-danger" data-del-marker="${p.id}">ลบจุดนี้</button></div>`;
     }
 
     function applyMarkerStyle(m){
@@ -390,8 +373,8 @@
       $('exportXlsxBtn').disabled = !enable;
       $('exportGeojsonBtn').disabled = !enable;
 
-      renderTable();
       renderSelectedPolys();
+      renderTable();
     }
 
     // ===== Geometry tests =====
@@ -401,13 +384,10 @@
       for (let j=0;j<thBorderPolys.features.length;j++){
         const bb = thBBoxes[j];
         if (lon < bb[0] || lon > bb[2] || lat < bb[1] || lat > bb[3]) continue;
-        if (turf.booleanPointInPolygon(pt, thBorderPolys.features[j], {ignoreBoundary:false})){
-          return true;
-        }
+        if (turf.booleanPointInPolygon(pt, thBorderPolys.features[j], {ignoreBoundary:false})) return true;
       }
       return false;
     }
-
     function findSubdistrictFeature(lat, lon){
       if (!subdistrictPolys) return null;
       const pt = turf.point([lon, lat]);
@@ -415,39 +395,26 @@
         const bb = subdBBoxes[j];
         if (lon < bb[0] || lon > bb[2] || lat < bb[1] || lat > bb[3]) continue;
         const feat = subdistrictPolys.features[j];
-        if (turf.booleanPointInPolygon(pt, feat, {ignoreBoundary:false})){
-          return feat;
-        }
+        if (turf.booleanPointInPolygon(pt, feat, {ignoreBoundary:false})) return feat;
       }
       return null;
     }
-
     function findSubdistrictProps(lat, lon){
       const feat = findSubdistrictFeature(lat, lon);
       if (!feat) return null;
       const prop = feat.properties || {};
-      return {
-        tambon:  prop[FIELD_TAMBON]   ?? null,
-        amphoe:  prop[FIELD_AMPHOE]   ?? null,
-        changwat:prop[FIELD_CHANGWAT] ?? null,
-        __feat: feat
-      };
+      return { tambon:prop[FIELD_TAMBON]??null, amphoe:prop[FIELD_AMPHOE]??null, changwat:prop[FIELD_CHANGWAT]??null, __feat:feat };
     }
 
     // ===== Render selected polygons =====
     function renderSelectedPolys(){
       selectedPolysLayer.clearLayers();
       if (!points.length || !subdistrictPolys) return;
-      const used = new Set();
-      const feats = [];
+      const used = new Set(); const feats=[];
       for (const p of points){
-        const propFeat = p.props?.__feat;
-        if (!propFeat) continue;
-        const key = JSON.stringify(propFeat.geometry);
-        if (!used.has(key)){
-          used.add(key);
-          feats.push(propFeat);
-        }
+        const f = p.props?.__feat; if (!f) continue;
+        const key = JSON.stringify(f.geometry);
+        if (!used.has(key)){ used.add(key); feats.push(f); }
       }
       if (feats.length){
         selectedPolysLayer.addData({type:'FeatureCollection', features:feats});
@@ -463,15 +430,11 @@
       const props = findSubdistrictProps(lat, lon);
       if (!props){ toast('พิกัดอยู่นอกขอบเขต GeoJSON — ไม่สามารถเพิ่มจุดได้'); return; }
       const {__feat, ...onlyProps} = props;
-      const p = {id: nextId++, lat, lon, props: onlyProps};
-      p.props.__feat = __feat;
-      points.push(p);
-      refreshMarkers();
+      const p = {id: nextId++, lat, lon, props: onlyProps}; p.props.__feat = __feat;
+      points.push(p); refreshMarkers();
     }
-
     function updatePointCoord(id, newLat, newLon){
-      const p = points.find(pp=>pp.id===id);
-      if (!p) return;
+      const p = points.find(pp=>pp.id===id); if (!p) return;
       const lat = (newLat===null)? p.lat : newLat;
       const lon = (newLon===null)? p.lon : newLon;
       if (!isFinite(lat) || !isFinite(lon)){ toast('ค่าพิกัดไม่ถูกต้อง'); renderTable(); return; }
@@ -480,19 +443,15 @@
       if (!props){ toast('อยู่นอกขอบเขต GeoJSON — ยกเลิก'); renderTable(); return; }
       const {__feat, ...onlyProps} = props;
       p.lat = lat; p.lon = lon; p.props = onlyProps; p.props.__feat = __feat;
-      if (p.marker) { p.marker.setLatLng([p.lat, p.lon]); applyMarkerStyle(p.marker); }
+      if (p.marker){ p.marker.setLatLng([p.lat, p.lon]); applyMarkerStyle(p.marker); }
       refreshMarkers();
     }
-
     function removePointById(id){
-      const idx = points.findIndex(p=>p.id===id);
-      if (idx === -1) return;
+      const idx = points.findIndex(p=>p.id===id); if (idx===-1) return;
       const p = points[idx];
       if (p.marker){ map.hasLayer(p.marker) && map.removeLayer(p.marker); }
-      if (cluster) { cluster.removeLayer(p.marker); }
-      points.splice(idx,1);
-      refreshMarkers();
-      toast('ลบจุดแล้ว');
+      if (cluster){ cluster.removeLayer(p.marker); }
+      points.splice(idx,1); refreshMarkers(); toast('ลบจุดแล้ว');
     }
 
     // ===== UI Controls =====
@@ -504,7 +463,7 @@
       if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
     }
     $('toggleAddModeBtn').addEventListener('click', ()=> setAddMode(!addMode));
-    $('clearPointsBtn').addEventListener('click', ()=>{ points = []; cluster.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); });
+    $('clearPointsBtn').addEventListener('click', ()=>{ points=[]; cluster.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); });
     $('rejoinBtn').addEventListener('click', ()=>{
       if (!subdistrictPolys){ toast('ยังไม่มีขอบเขต'); return; }
       let hit=0, miss=0;
@@ -512,27 +471,17 @@
         const f = findSubdistrictFeature(p.lat, p.lon);
         if (f){
           const prop = f.properties||{};
-          p.props = {
-            tambon:  prop[FIELD_TAMBON]   ?? null,
-            amphoe:  prop[FIELD_AMPHOE]   ?? null,
-            changwat:prop[FIELD_CHANGWAT] ?? null,
-            __feat: f
-          };
+          p.props = { tambon:prop[FIELD_TAMBON]??null, amphoe:prop[FIELD_AMPHOE]??null, changwat:prop[FIELD_CHANGWAT]??null, __feat:f };
           hit++;
-        } else {
-          p.props = {tambon:null, amphoe:null, changwat:null}; miss++;
-        }
+        } else { p.props = {tambon:null, amphoe:null, changwat:null}; miss++; }
       });
-      refreshMarkers();
-      toast(`Join ใหม่: ตรง ${hit} / ไม่พบ ${miss}`);
+      refreshMarkers(); toast(`Join ใหม่: ตรง ${hit} / ไม่พบ ${miss}`);
     });
 
-    // Editor row (+)
+    // Editor row
     $('addNewRowBtn').addEventListener('click', ()=>{
-      const lat = toNumberMaybe($('newLat').value);
-      const lon = toNumberMaybe($('newLon').value);
-      addPointWithChecks(lat, lon);
-      $('newLat').value = ''; $('newLon').value = '';
+      const lat = toNumberMaybe($('newLat').value), lon = toNumberMaybe($('newLon').value);
+      addPointWithChecks(lat, lon); $('newLat').value=''; $('newLon').value='';
     });
 
     // Map click add
@@ -541,56 +490,45 @@
       if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
       tempAddMarker = L.marker(e.latlng, {opacity:0.9}).addTo(map);
       const lat = e.latlng.lat, lon = e.latlng.lng;
-      const html = `
-        <div><b>ยืนยันเพิ่มจุดนี้</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
-        <div style="margin-top:8px"><button class="btn" id="confirmAddBtn">ยืนยันเพิ่มจุด</button></div>`;
+      const html = `<div><b>ยืนยันเพิ่มจุดนี้</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
+                    <div style="margin-top:8px"><button class="btn" id="confirmAddBtn">ยืนยันเพิ่มจุด</button></div>`;
       tempAddMarker.bindPopup(html);
       tempAddMarker.once('popupopen', ()=>{
-        const ok = document.getElementById('confirmAddBtn');
-        if (ok){
-          ok.addEventListener('click', ()=>{
-            addPointWithChecks(lat, lon);
-            if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
-          }, { once: true });
-        }
+        const ok = $('confirmAddBtn');
+        if (ok){ ok.addEventListener('click', ()=>{
+          addPointWithChecks(lat, lon);
+          if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
+        }, { once:true });}
       });
       tempAddMarker.openPopup();
     });
 
     // Upload
-    $('excelInput').addEventListener('change', async (ev)=>{
-      const file = ev.target.files && ev.target.files[0];
-      if (!file) return;
+    $('excelInput')?.addEventListener('change', async (ev)=>{
+      const file = ev.target.files && ev.target.files[0]; if (!file) return;
       try{
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf, {type:'array'});
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
+        const wsname = wb.SheetNames[0]; const ws = wb.Sheets[wsname];
         const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true});
         const hasHeader = $('hasHeader').checked;
-        let added = 0, skipped = 0;
+        let added=0, skipped=0;
         rows.forEach((r,i)=>{
-          if (!Array.isArray(r) || r.length < 2) return;
+          if (!Array.isArray(r) || r.length<2) return;
           if (hasHeader && i===0) return;
-          const lat = toNumberMaybe(r[0]);
-          const lon = toNumberMaybe(r[1]);
-          const before = points.length;
-          addPointWithChecks(lat, lon);
+          const lat = toNumberMaybe(r[0]), lon = toNumberMaybe(r[1]);
+          const before = points.length; addPointWithChecks(lat, lon);
           if (points.length>before) added++; else skipped++;
         });
         $('excelPreview').textContent = `เพิ่มจากไฟล์: ${added.toLocaleString()} จุด (ข้าม ${skipped.toLocaleString()} จุด)`;
         toast(`เพิ่มจุดจากไฟล์: ${added.toLocaleString()} จุด, ข้าม ${skipped.toLocaleString()} จุด`);
-      }catch(err){
-        console.error(err); toast('อ่านไฟล์ล้มเหลว: ' + (err?.message||err));
-      }
+      }catch(err){ console.error(err); toast('อ่านไฟล์ล้มเหลว: ' + (err?.message||err)); }
     });
 
     // Export
     function exportCollectRows(){
-      const rows = [];
-      const body = document.getElementById('pointsTableBody');
-      const trs = Array.from(body.querySelectorAll('tr')).filter(tr=>!tr.classList.contains('row-editor'));
-      rows.push(['lat','lon','tambon','amphoe','changwat']);
+      const rows=[['lat','lon','tambon','amphoe','changwat']];
+      const trs=[...document.querySelectorAll('#pointsTableBody tr:not(.row-editor)')];
       trs.forEach(tr=>{
         const tds = tr.querySelectorAll('td');
         const lat = tds[2]?.querySelector('input')?.value ?? '';
@@ -626,8 +564,7 @@
         if (!isFinite(lat) || !isFinite(lon)) return null;
         return { type:'Feature', geometry:{type:'Point', coordinates:[lon, lat]}, properties:{ lat, lon, tambon, amphoe, changwat } };
       }).filter(Boolean);
-      const fc = {type:'FeatureCollection', features:feats};
-      download('points_joined.geojson', JSON.stringify(fc), 'application/geo+json');
+      download('points_joined.geojson', JSON.stringify({type:'FeatureCollection', features:feats}), 'application/geo+json');
     });
 
     // Load data
@@ -649,14 +586,15 @@
       thBorderLayer.addData(thBorderPolys);
     }
 
-    // Style bindings
+    // Style bindings + badges + compact
     $('pointColor').addEventListener('input', (e)=>{
       pointColor = e.target.value || '#1e90ff';
       points.forEach(p=> p.marker && applyMarkerStyle(p.marker));
+      refreshBadges();
     });
     $('pointRadius').addEventListener('change', (e)=>{
       const v = parseInt(e.target.value,10);
-      if (isFinite(v) && v>0){ pointRadius = v; points.forEach(p=> p.marker && applyMarkerStyle(p.marker)); }
+      if (isFinite(v) && v>0){ pointRadius = v; points.forEach(p=> p.marker && applyMarkerStyle(p.marker)); refreshBadges(); }
     });
     $('polyColor').addEventListener('input', (e)=>{
       polyColor = e.target.value || '#888888';
@@ -664,17 +602,14 @@
     });
     $('polyWeight').addEventListener('change', (e)=>{
       const v = parseInt(e.target.value,10);
-      if (isFinite(v) && v>0){ polyWeight = v; selectedPolysLayer.setStyle({color: polyColor, weight: polyWeight, fill:false}); }
+      if (isFinite(v) && v>0){ polyWeight = v; selectedPolysLayer.setStyle({color: polyColor, weight: polyWeight, fill:false}); refreshBadges(); }
     });
 
-    // Fix: invalidate size when sections toggle or window resizes
+    // Keep map healthy when toggling sections / resizing
     ['uploadSection','styleSection'].forEach(id=>{
-      const el = $(id);
-      if (el){
-        el.addEventListener('toggle', ()=> setTimeout(()=>map.invalidateSize(), 150));
-      }
+      $(id)?.addEventListener('toggle', ()=> setTimeout(()=>map.invalidateSize(), 120));
     });
-    window.addEventListener('resize', ()=> setTimeout(()=>map.invalidateSize(), 100));
+    window.addEventListener('resize', ()=> setTimeout(()=>map.invalidateSize(), 80));
 
     (async()=>{
       try{
