@@ -341,7 +341,7 @@
       return `Lat: ${formatLatLon(p.lat)}<br>
               Lon: ${formatLatLon(p.lon)}
               ${(props.tambon||props.amphoe||props.changwat)? `<br><b>ตำบล</b>: ${props.tambon ?? '-'}<br><b>อำเภอ</b>: ${props.amphoe ?? '-'}<br><b>จังหวัด</b>: ${props.changwat ?? '-'}`:''}
-              <div style="margin-top:8px"><button class="btn btn-danger" data-del-marker="${p.id}">ลบจุดนี้</button></div>`;
+              <div style="margin-top:8px"><button class="btn btn-danger" data-del-marker="${p.id}"></button></div>`;
     }
 
     function applyMarkerStyle(m){
