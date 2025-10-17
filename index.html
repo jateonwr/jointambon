@@ -29,7 +29,7 @@
     body{background:#0b0f1a;color:#f3f6fb}
 
     .app{display:grid;grid-template-columns:460px 1fr;grid-template-areas:"left right";gap:14px;height:100%;padding:14px;box-sizing:border-box}
-    .panel-left{grid-area:left;min-width:0;display:flex;flex-direction:column}
+    .panel-left{grid-area:left;min-width:0}
     .panel-map{grid-area:right}
     #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden}
 
@@ -103,8 +103,9 @@
     /* Name columns (ตำบล/อำเภอ/จังหวัด) narrower (110px) */
     .col-tambon,.col-amphoe,.col-changwat{min-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-    /* Footer right-bottom */
-    .footer-right { margin-top:auto; display:flex; justify-content:flex-end; }
+    @media (max-width:1024px){.app{grid-template-columns:380px 1fr}#map{min-height:520px}}
+    @media (max-width:768px){.app{grid-template-columns:1fr;grid-template-areas:"right" "left"}#map{min-height:400px}.bar{flex-direction:column;align-items:stretch}.bar-right{justify-content:space-between}}
+    @media (max-width:420px){#map{min-height:360px}input[type="number"].celled{width:85px}.btn{padding:8px 10px}.btn-icon{width:30px;height:30px}}
   </style>
 </head>
 <body>
@@ -179,8 +180,7 @@
         <button class="btn btn-outline" id="exportGeojsonBtn" disabled>Export GeoJSON</button>
       </div>
 
-      <!-- ↓ ชิดขวาล่าง -->
-      <div class="footer-right">
+      <div style="margin-top:auto">
         <div class="small">สำนักงานทรัพยากรน้ำแห่งชาติ (สทนช.)</div>
       </div>
     </div>
@@ -453,6 +453,7 @@
       addPointWithChecks(lat, lon); $('newLat').value=''; $('newLon').value='';
     });
 
+    // Map click popup: also bold lat/lon
     map.on('click',(e)=>{
       if(!addMode) return;
       if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
