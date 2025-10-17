@@ -159,14 +159,14 @@
 
     <!-- Controls & Table -->
     <div class="panel panel-left">
-      <h1>เครื่องมือระบุตำบล อำเภอ จังหวัด จากข้อมูลพิกัดทางภูมิศาสตร์</h1>
+      <h2>เครื่องมือระบุตำบล อำเภอ จังหวัด จากข้อมูลพิกัดทางภูมิศาสตร์</h2>
       <div class="divider"></div>
 
       <!-- Table header bar -->
       <div class="bar">
         <div class="bar-left">
-          <h2 style="margin:0">ตารางแอตทริบิวต์ (Attribute Table)</h2>
-          <button class="btn btn-outline" id="rejoinBtn" title="คำนวณใหม่จาก polygon">Re-Join Attributes</button>
+          <h2 style="margin:0">Attribute Table</h2>
+          <button class="btn btn-outline" id="rejoinBtn" title="คำนวณใหม่จาก polygon">Re-Join</button>
         </div>
         <div class="bar-right">
           <!-- ปุ่ม Toggle เพิ่มจุดจากแผนที่ -->
@@ -489,7 +489,7 @@
       const btn = $('toggleAddModeBtn');
       const lbl = $('toggleAddModeLabel');
       btn.setAttribute('aria-pressed', addMode ? 'true' : 'false');
-      lbl.textContent = addMode ? 'กำลังเพิ่มจากแผนที่' : 'เพิ่มจุดจากแผนที่';
+      lbl.textContent = addMode ? 'ปิดการเพิ่มจุด' : 'เพิ่มจุดจากแผนที่';
       if (addMode){
         map.getContainer().classList.add('cursor-add');
         toast('โหมดเพิ่ม: แตะแผนที่แล้ว “ยืนยันเพิ่มจุด”');
