@@ -34,7 +34,7 @@
     #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden}
 
     h1{font-size:18px;margin:.2rem 0 10px;font-weight:400}
-    h2{font-size:14px;margin:16px 0 8px;color:var(--muted);font-weight:400;letter-spacing:.2px}
+    h2{font-size:14px;margin:16px 0 8px;color:#a9b0c0;font-weight:400;letter-spacing:.2px}
 
     /* Buttons (force Sarabun) */
     .btn,.btn-outline,.btn-danger,.btn-danger-solid,.btn-icon,
@@ -71,8 +71,9 @@
     thead th{position:sticky;top:0;background:#101a34;color:#e8f0ff;border-bottom:1px solid #243056;padding:8px;font-weight:400;text-align:left}
     tbody td{border-bottom:1px solid #1d2846;padding:6px 8px;color:#dbe6ff;vertical-align:middle}
     tbody tr:hover{background:#0f1830}
-    /* highlight selected table row */
+    /* highlight + cursor on selectable rows */
     tbody tr.is-selected{background:#14234a}
+    tbody tr[data-id]{cursor:pointer}
     .t-act{width:60px;text-align:center}
     .t-num{width:44px}
     .pill{display:inline-block;padding:2px 6px;border-radius:999px;border:1px solid #2b3a63;background:#0d1833;font-size:11px}
@@ -120,10 +121,10 @@
       <div class="bar">
         <div class="bar-left">
           <h2 style="margin-top:30px">Attribute Table</h2>
-          <button class="btn btn-outline" id="rejoinBtn" title="คำนวณใหม่จาก polygon">Re-Join</button>
+          <button class="btn btn-outline" id="rejoinBtn" title="คำนวณใหม่จาก polygon" style="margin-top:30px">Re-Join</button>
         </div>
         <div class="bar-right">
-          <button id="toggleAddModeBtn" class="toggle" aria-pressed="false" title="เพิ่มจุดจากแผนที่ (Toggle)">
+          <button id="toggleAddModeBtn" class="toggle" aria-pressed="false" title="เพิ่มจุดจากแผนที่ (Toggle)" style="margin-top:30px">
             <span class="track"><span class="knob"></span></span>
             <span class="label" id="toggleAddModeLabel">เพิ่มจุดจากแผนที่</span>
           </button>
@@ -250,7 +251,7 @@
     let subdistrictPolys=null, subdBBoxes=[];
     let thBorderPolys=null, thBBoxes=[];
     let addMode=false; let tempAddMarker=null;
-    let selectedId=null; // <-- current selected point id
+    let selectedId=null; // current selected point id
 
     function renderTable(){
       const tb = $('pointsTableBody');
@@ -275,28 +276,35 @@
 
       $('pointCount').textContent = points.length.toLocaleString();
 
-      // row click -> select & open popup
-      tb.querySelectorAll('tr[data-id]').forEach(tr=>{
-        tr.addEventListener('click', (ev)=>{
-          // หลีกเลี่ยงตอนกดปุ่มลบหรือแก้ไข input
-          if ((ev.target instanceof HTMLElement) && (ev.target.closest('button') || ev.target.closest('input'))) return;
-          const id = Number(tr.dataset.id);
-          setSelected(id, {center:true, open:true, from:'table'});
-        });
-      });
-
+      // ปุ่มลบ + editor inputs
       tb.querySelectorAll('button[data-del]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
+        btn.addEventListener('click', (ev)=>{
+          ev.stopPropagation();
           removePointById(Number(btn.getAttribute('data-del')))
         });
       });
       tb.querySelectorAll('input[data-edit-lat]').forEach(inp=>{
+        inp.addEventListener('click', ev=>ev.stopPropagation());
         inp.addEventListener('change', ()=> updatePointCoord(Number(inp.getAttribute('data-edit-lat')), toNumberMaybe(inp.value), null));
       });
       tb.querySelectorAll('input[data-edit-lon]').forEach(inp=>{
+        inp.addEventListener('click', ev=>ev.stopPropagation());
         inp.addEventListener('change', ()=> updatePointCoord(Number(inp.getAttribute('data-edit-lon')), null, toNumberMaybe(inp.value)));
       });
     }
+
+    // === Delegation: click แถว -> เลือก & เปิด popup บนแผนที่
+    (function bindTableRowDelegation(){
+      const tb = $('pointsTableBody');
+      tb.addEventListener('click', (ev)=>{
+        // ข้ามถ้าคลิกปุ่มหรืออินพุต
+        if (ev.target.closest('button, input')) return;
+        const row = ev.target.closest('tr[data-id]');
+        if (!row) return;
+        const id = Number(row.dataset.id);
+        setSelected(id, {center:true, open:true, from:'table'});
+      });
+    })();
 
     // popup: bold lat/lon
     function popupHtmlForPoint(p){
@@ -371,13 +379,13 @@
       // update markers style
       points.forEach(pp=> applyMarkerStyle(pp.marker, pp.id===selectedId));
 
-      // scroll the row into view if selection originated from map
+      // ถ้ามาจากแผนที่ เลื่อนตารางให้เห็นแถว
       if (from==='map'){
         const row = document.querySelector(`#pointsTableBody tr[data-id="${id}"]`);
         row && row.scrollIntoView({block:'nearest', behavior:'smooth'});
       }
 
-      // move/zoom and open popup when selection originates from table or programmatic
+      // โฟกัส + เปิด popup
       if (center && p.marker){
         cluster.zoomToShowLayer(p.marker, ()=>{
           map.panTo(p.marker.getLatLng());
@@ -446,7 +454,6 @@
       const p={id:nextId++,lat,lon,props:onlyProps}; p.props.__feat=__feat;
       points.push(p);
       refreshMarkers();
-      // auto-select the newly added point
       setSelected(p.id, {center:true, open:false, from:'auto'});
     }
     function updatePointCoord(id, newLat, newLon){
