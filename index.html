@@ -24,13 +24,13 @@
     body{background:#0b0f1a;color:#f3f6fb}
 
     .app{display:grid;grid-template-columns:460px 1fr;grid-template-areas:"left right";gap:14px;height:100%;padding:14px;box-sizing:border-box}
-    .panel-left{grid-area:left;min-width:0; font-size:13px;}          /* ขนาดตัวอักษร 13px สำหรับทุกอย่างที่ไม่ใช่แผนที่/ตาราง */
-    .panel-left h1{font-size:16px;margin:.2rem 0 10px;font-weight:400} /* หัวเรื่องหลัก 13px ตามที่ขอ */
-    .panel-left h2{font-size:13px;margin:16px 0 8px;color:#a9b0c0;font-weight:400;letter-spacing:.2px} /* หัวข้อย่อย 13px */
+    .panel-left{grid-area:left;min-width:0}
     .panel-map{grid-area:right}
     #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden}
 
-    /* ปุ่ม/ตัวควบคุม ใช้ 13px โดยอาศัย inherit จาก .panel-left */
+    h1{font-size:18px;margin:.2rem 0 10px;font-weight:400}
+    h2{font-size:15px;margin:16px 0 8px;color:#a9b0c0;font-weight:400;letter-spacing:.2px}
+
     .btn,.btn-outline,.btn-danger,.btn-danger-solid,.btn-icon,
     .toggle,.toggle .label,#clearPointsBtn,#addNewRowBtn{
       font-family:'Sarabun',system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial !important;
@@ -58,10 +58,10 @@
     .toggle .knob{position:absolute;top:1px;left:1px;width:20px;height:20px;border-radius:50%;background:#cfdcff;transition:transform .15s}
     .toggle[aria-pressed="true"] .track{background:#1e90ff;border-color:#1e6dd6}
     .toggle[aria-pressed="true"] .knob{transform:translateX(22px)}
-    .toggle .label{opacity:.9}
+    .toggle .label{font-size:12.5px;opacity:.9}
 
     .tableWrap{min-height:440px;max-height:720px;overflow:auto;border:1px solid #243056;border-radius:10px;background:#0e1526}
-    table{width:100%;border-collapse:collapse;font-size:12.5px}       /* ตารางคงไว้ 12.5px */
+    table{width:100%;border-collapse:collapse;font-size:12.5px}
     thead th{position:sticky;top:0;background:#101a34;color:#e8f0ff;border-bottom:1px solid #243056;padding:8px;font-weight:400;text-align:left}
     tbody td{border-bottom:1px solid #1d2846;padding:6px 8px;color:#dbe6ff;vertical-align:middle}
     tbody tr:hover{background:#0f1830}
@@ -90,7 +90,6 @@
     .modal-actions{display:flex;gap:10px;justify-content:flex-end}
     .btn-ghost{background:transparent;border:1px solid #2a3354;color:#d6e5ff;padding:8px 12px;border-radius:10px;cursor:pointer}
 
-    /* ข้อความในองค์ประกอบของ Leaflet (แผนที่) แยกจาก .panel-left อยู่แล้ว */
     .leaflet-container,.leaflet-popup-content,.leaflet-tooltip,.leaflet-control,.leaflet-control *,.leaflet-bar a,.leaflet-bar a span,.leaflet-control-attribution{
       font-family:'Sarabun',system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial !important;letter-spacing:.1px
     }
@@ -149,7 +148,7 @@
       </div>
 
       <div class="countRow" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:8px;color:#9fb0d0;font-size:12px">
-        <div>จำนวนจุดทั้งหมด: <span id="pointCount">0</span></div>
+        <div>จำนวนจุดทั้งหมด: <span id="pointCount">0</span><span class="note"> (แตะจุดบนแผนที่เพื่อลบได้)</span></div>
         <div><button class="btn btn-outline" id="clearPointsBtn">ล้างจุดทั้งหมด</button></div>
       </div>
 
@@ -163,8 +162,8 @@
               <span>แถวแรกเป็น header</span>
             </span>
           </label>
-          <input style="margin-top:10px" id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
-          <div id="excelPreview" class="small" style="margin-top:10px;color:#b8c7ea"></div>
+          <input style="margin-top:20px" id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
+          <div id="excelPreview" class="small" style="margin-top:20px;color:#b8c7ea"></div>
         </div>
       </details>
 
@@ -176,7 +175,7 @@
 
       <div style="margin-top:30px">
         <div class="divider"></div>
-        <div class="small" style="margin-top:10px">สำนักงานทรัพยากรน้ำแห่งชาติ (สทนช.)</div>
+        <div class="small">สำนักงานทรัพยากรน้ำแห่งชาติ (สทนช.)</div>
       </div>
     </div>
   </div>
@@ -488,7 +487,7 @@
       }catch(err){ console.error(err); toast('อ่านไฟล์ล้มเหลว: ' + (err?.message||err)); }
     });
 
-    // Export headers (ไทย)
+    // === เปลี่ยนหัวคอลัมน์ export เป็นไทย ===
     function exportCollectRows(){
       const rows=[['ลำดับ','lat','lon','ตำบล','อำเภอ','จังหวัด','ID']];
       [...document.querySelectorAll('#pointsTableBody tr:not(.row-editor)')].forEach(tr=>{
@@ -504,6 +503,7 @@
       });
       return rows;
     }
+
     $('exportCsvBtn').addEventListener('click',()=>{
       const rows=exportCollectRows();
       const csv=rows.map(r=>r.map(v=>{const s=(v==null)?'':String(v); return s.includes(',')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
