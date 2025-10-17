@@ -135,6 +135,28 @@
     .modal-actions{display:flex; gap:10px; justify-content:flex-end}
     .btn-ghost{background:transparent; border:1px solid #2a3354; color:#d6e5ff; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:400}
 
+    /* --- บังคับฟอนต์ Sarabun ให้ element บนแผนที่ (เท่าที่ Leaflet เรนเดอร์เป็น DOM) --- */
+    .leaflet-container,
+    .leaflet-popup-content,
+    .leaflet-tooltip,
+    .leaflet-control,
+    .leaflet-control * ,
+    .leaflet-bar a,
+    .leaflet-bar a span,
+    .leaflet-control-attribution {
+      font-family:'Sarabun', system-ui, Segoe UI, Roboto, 'Helvetica Neue', Arial !important;
+      font-weight:400;
+      letter-spacing:.1px;
+    }
+
+    /* --- เพิ่มความกว้างคอลัมน์ ตำบล/อำเภอ/จังหวัด ให้เท่ากันและกว้างขึ้น --- */
+    .col-tambon, .col-amphoe, .col-changwat {
+      min-width: 220px; /* กว้างขึ้น ~เท่าตัวเมื่อเทียบกับดีฟอลต์ */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     /* Responsive */
     @media (max-width: 1024px){
       .app{grid-template-columns:380px 1fr;}
@@ -187,9 +209,9 @@
               <th class="t-num">ลำดับ</th>
               <th>Lat</th>
               <th>Lon</th>
-              <th>ตำบล</th>
-              <th>อำเภอ</th>
-              <th>จังหวัด</th>
+              <th class="col-tambon">ตำบล</th>
+              <th class="col-amphoe">อำเภอ</th>
+              <th class="col-changwat">จังหวัด</th>
               <th>ID</th>
             </tr>
           </thead>
@@ -321,9 +343,9 @@
           <td class="t-num"><span class="pill">${idx+1}</span></td>
           <td><input class="celled" type="number" step="any" data-edit-lat="${p.id}" value="${formatLatLon(p.lat)}"></td>
           <td><input class="celled" type="number" step="any" data-edit-lon="${p.id}" value="${formatLatLon(p.lon)}"></td>
-          <td>${p.props?.tambon ?? ''}</td>
-          <td>${p.props?.amphoe ?? ''}</td>
-          <td>${p.props?.changwat ?? ''}</td>
+          <td class="col-tambon">${p.props?.tambon ?? ''}</td>
+          <td class="col-amphoe">${p.props?.amphoe ?? ''}</td>
+          <td class="col-changwat">${p.props?.changwat ?? ''}</td>
           <td>${p.props?.id ?? ''}</td>`;
         tb.appendChild(tr);
       });
@@ -341,7 +363,7 @@
       });
     }
 
-    // popup แสดงจุด: จัดปุ่ม “ลบ” ให้อยู่กึ่งกลางและเป็นสีแดง
+    // popup แสดงจุด (ฟอนต์ Sarabun ใช้จาก CSS ที่บังคับ .leaflet-*)
     function popupHtmlForPoint(p){
       const props = p.props||{};
       return `
@@ -416,7 +438,6 @@
       const feat = findSubdistrictFeature(lat, lon);
       if (!feat) return null;
       const prop = feat.properties || {};
-      // เพิ่ม ID = "J_" + tam_code
       const idStr = (prop[FIELD_TAMCODE] != null && String(prop[FIELD_TAMCODE]).length) ? ('J_' + String(prop[FIELD_TAMCODE])) : null;
       return { tambon:prop[FIELD_TAMBON]??null, amphoe:prop[FIELD_AMPHOE]??null, changwat:prop[FIELD_CHANGWAT]??null, id:idStr, __feat:feat };
     }
@@ -546,7 +567,7 @@
       addPointWithChecks(lat, lon); $('newLat').value=''; $('newLon').value='';
     });
 
-    // Map click add — ปรับปุ่มเป็น “ยืนยัน” และจัดให้อยู่กึ่งกลาง
+    // Map click add — ปุ่ม “ยืนยัน”
     map.on('click', (e)=>{
       if (!addMode) return;
       if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
@@ -587,20 +608,20 @@
       }catch(err){ console.error(err); toast('อ่านไฟล์ล้มเหลว: ' + (err?.message||err)); }
     });
 
-    // Export
+    // Export (เพิ่ม "ลำดับ" เป็นคอลัมน์แรก)
     function exportCollectRows(){
-      // หัวตารางเป็นไทย + ID ต่อท้าย
-      const rows=[['lat','lon','ตำบล','อำเภอ','จังหวัด','ID']];
+      const rows=[['ลำดับ','lat','lon','ตำบล','อำเภอ','จังหวัด','ID']];
       const trs=[...document.querySelectorAll('#pointsTableBody tr:not(.row-editor)')];
       trs.forEach(tr=>{
         const tds = tr.querySelectorAll('td');
+        const order = tds[1]?.querySelector('.pill')?.textContent?.trim() ?? '';
         const lat = tds[2]?.querySelector('input')?.value ?? '';
         const lon = tds[3]?.querySelector('input')?.value ?? '';
         const tambon = tds[4]?.textContent?.trim() ?? '';
         const amphoe = tds[5]?.textContent?.trim() ?? '';
         const changwat = tds[6]?.textContent?.trim() ?? '';
         const idStr = tds[7]?.textContent?.trim() ?? '';
-        rows.push([lat,lon,tambon,amphoe,changwat,idStr]);
+        rows.push([order,lat,lon,tambon,amphoe,changwat,idStr]);
       });
       return rows;
     }
@@ -623,11 +644,16 @@
     $('exportGeojsonBtn').addEventListener('click', ()=>{
       const rows = exportCollectRows();
       const feats = rows.slice(1).map(r=>{
-        const lat = parseFloat(r[0]), lon = parseFloat(r[1]);
-        const tambon = r[2] || null, amphoe = r[3] || null, changwat = r[4] || null;
-        const idStr = r[5] || null;
+        const orderStr = r[0] || null;
+        const lat = parseFloat(r[1]), lon = parseFloat(r[2]);
+        const tambon = r[3] || null, amphoe = r[4] || null, changwat = r[5] || null;
+        const idStr = r[6] || null;
         if (!isFinite(lat) || !isFinite(lon)) return null;
-        return { type:'Feature', geometry:{type:'Point', coordinates:[lon, lat]}, properties:{ lat, lon, ตำบล:tambon, อำเภอ:amphoe, จังหวัด:changwat, ID:idStr } };
+        return {
+          type:'Feature',
+          geometry:{type:'Point', coordinates:[lon, lat]},
+          properties:{ ลำดับ:orderStr, lat, lon, ตำบล:tambon, อำเภอ:amphoe, จังหวัด:changwat, ID:idStr }
+        };
       }).filter(Boolean);
       download('points_joined.geojson', JSON.stringify({type:'FeatureCollection', features:feats}), 'application/geo+json');
     });
