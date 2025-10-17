@@ -82,41 +82,24 @@
     }
     details.collapser > summary::before{content:"▾"; display:inline-block; transform:rotate(0deg); transition:transform .15s ease; opacity:.8}
     details.collapser[open] > summary::before{ transform:rotate(180deg); }
-    .summary-badges{display:flex; gap:6px; flex-wrap:wrap; margin-left:auto}
-    .badge{font-size:10.5px; color:#b8c7ea; background:#111a2e; border:1px solid #213055; border-radius:999px; padding:2px 6px; display:inline-flex; align-items:center; gap:6px}
-    .sw{width:12px;height:12px;border-radius:3px;border:1px solid #ffffff22}
-
     .collapser-body{ margin-top:8px }
-
-    /* Compact controls: label top, input bottom; tiny gaps */
-    .ctl{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
-    .stack{display:flex; flex-direction:column; gap:4px}
-    .ctl label{font-size:12px; color:#b7c7ea}
-    .ctl input[type="color"], .ctl input[type="number"]{
-      background:#0e1526;border:1px solid #243056;border-radius:8px;padding:6px 8px;color:#eaf1ff;
-    }
-    .ctl input[type="color"]{height:36px; width:100%}
-    .ctl input[type="number"]{height:36px; width:100%}
 
     /* Responsive */
     @media (max-width: 1024px){
       .app{grid-template-columns:380px 1fr;}
       #map{min-height:520px}
-      .ctl{grid-template-columns:repeat(3,1fr)}
     }
     @media (max-width: 768px){
       .app{grid-template-columns:1fr; grid-template-areas:"right" "left";}
       #map{min-height:400px}
       .bar{flex-direction:column; align-items:stretch}
       .bar-right{justify-content:space-between}
-      .ctl{grid-template-columns:repeat(2,1fr)}
     }
     @media (max-width: 420px){
       #map{min-height:360px}
       input[type="number"].celled{width:100px}
       .btn{padding:8px 10px}
       .btn-icon{width:30px;height:30px}
-      .ctl{grid-template-columns:1fr}
     }
   </style>
 </head>
@@ -189,38 +172,6 @@
         </div>
       </details>
 
-      <!-- ตัวเลือกสไตล์ (คอมแพค + ซ่อนเป็น default) -->
-      <details class="collapser" id="styleSection">
-        <summary>
-          ตัวเลือกสไตล์แผนที่
-          <span class="summary-badges">
-            <span class="badge"><span class="sw" id="bPointSw" style="background:#1e90ff"></span><span id="bPointColorText">#1e90ff</span></span>
-            <span class="badge">จุด <span id="bPointSize">5</span> px</span>
-            <span class="badge">เส้น <span id="bPolyWeight">2</span> px</span>
-          </span>
-        </summary>
-        <div class="collapser-body">
-          <div class="ctl">
-            <div class="stack">
-              <label for="pointColor">สีจุด</label>
-              <input type="color" id="pointColor" value="#1e90ff">
-            </div>
-            <div class="stack">
-              <label for="pointRadius">ขนาดจุด</label>
-              <input type="number" id="pointRadius" min="1" max="20" step="1" value="5">
-            </div>
-            <div class="stack">
-              <label for="polyColor">สีเส้นตำบลที่เลือก</label>
-              <input type="color" id="polyColor" value="#888888">
-            </div>
-            <div class="stack">
-              <label for="polyWeight">ความหนาเส้นตำบลที่เลือก</label>
-              <input type="number" id="polyWeight" min="1" max="10" step="1" value="2">
-            </div>
-          </div>
-        </div>
-      </details>
-
       <div class="divider"></div>
 
       <div class="actions" style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
@@ -253,6 +204,12 @@
   const SUBD_PATH      = 'subdistricts.geojson';
   const TH_BORDER_PATH = 'th_boundary.geojson';
 
+  // Fixed styles (no style UI anymore)
+  const DEFAULT_POINT_COLOR = '#1e90ff';
+  const DEFAULT_POINT_RADIUS = 5;
+  const DEFAULT_POLY_COLOR = '#888';
+  const DEFAULT_POLY_WEIGHT = 2;
+
   document.addEventListener('DOMContentLoaded', () => {
     // ===== Map =====
     const map = L.map('map', {preferCanvas:true});
@@ -271,31 +228,12 @@
 
     // Layers
     const thBorderLayer = L.geoJSON(null,{style:{color:'#000', weight:2, fill:false}}).addTo(map);
-    const selectedPolysLayer = L.geoJSON(null,{style:{color:'#888', weight:2, fill:false}}).addTo(map);
+    const selectedPolysLayer = L.geoJSON(null,{style:{color: DEFAULT_POLY_COLOR, weight: DEFAULT_POLY_WEIGHT, fill:false}}).addTo(map);
     const cluster = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
     map.addLayer(cluster);
 
     // Overlays
     L.control.layers(null, {'จุด': cluster,'ตำบล': selectedPolysLayer,'ประเทศไทย': thBorderLayer}, {collapsed:false, position:'topright'}).addTo(map);
-
-    // ===== Style State =====
-    let pointColor = '#1e90ff';
-    let pointRadius = 5;
-    let polyColor = '#888888';
-    let polyWeight = 2;
-
-    // Badges updater (summary shows current)
-    const bPointSw = $('bPointSw');
-    const bPointColorText = $('bPointColorText');
-    const bPointSize = $('bPointSize');
-    const bPolyWeight = $('bPolyWeight');
-    function refreshBadges(){
-      if (bPointSw) bPointSw.style.background = pointColor;
-      if (bPointColorText) bPointColorText.textContent = pointColor.toLowerCase();
-      if (bPointSize) bPointSize.textContent = String(pointRadius);
-      if (bPolyWeight) bPolyWeight.textContent = String(polyWeight);
-    }
-    refreshBadges();
 
     // ===== State =====
     let points=[]; let nextId=1;
@@ -346,14 +284,14 @@
 
     function applyMarkerStyle(m){
       if (!m) return;
-      m.setStyle({radius: pointRadius, color: pointColor, fillColor: pointColor, fillOpacity:0.9, weight:1});
+      m.setStyle({radius: DEFAULT_POINT_RADIUS, color: DEFAULT_POINT_COLOR, fillColor: DEFAULT_POINT_COLOR, fillOpacity:0.9, weight:1});
     }
 
     function refreshMarkers(){
       cluster.clearLayers();
       points.forEach(p => {
         if (!p.marker){
-          const m = L.circleMarker([p.lat, p.lon], {radius:pointRadius, weight:1, color:pointColor, fillColor:pointColor, fillOpacity:0.9});
+          const m = L.circleMarker([p.lat, p.lon], {radius:DEFAULT_POINT_RADIUS, weight:1, color:DEFAULT_POINT_COLOR, fillColor:DEFAULT_POINT_COLOR, fillOpacity:0.9});
           m.bindPopup(popupHtmlForPoint(p));
           m.on('popupopen', (ev)=>{
             const btn = ev.popup._contentNode.querySelector('button[data-del-marker]');
@@ -418,7 +356,7 @@
       }
       if (feats.length){
         selectedPolysLayer.addData({type:'FeatureCollection', features:feats});
-        selectedPolysLayer.setStyle({color: polyColor, weight: polyWeight, fill:false});
+        selectedPolysLayer.setStyle({color: DEFAULT_POLY_COLOR, weight: DEFAULT_POLY_WEIGHT, fill:false});
       }
     }
 
@@ -586,29 +524,8 @@
       thBorderLayer.addData(thBorderPolys);
     }
 
-    // Style bindings + badges + compact
-    $('pointColor').addEventListener('input', (e)=>{
-      pointColor = e.target.value || '#1e90ff';
-      points.forEach(p=> p.marker && applyMarkerStyle(p.marker));
-      refreshBadges();
-    });
-    $('pointRadius').addEventListener('change', (e)=>{
-      const v = parseInt(e.target.value,10);
-      if (isFinite(v) && v>0){ pointRadius = v; points.forEach(p=> p.marker && applyMarkerStyle(p.marker)); refreshBadges(); }
-    });
-    $('polyColor').addEventListener('input', (e)=>{
-      polyColor = e.target.value || '#888888';
-      selectedPolysLayer.setStyle({color: polyColor, weight: polyWeight, fill:false});
-    });
-    $('polyWeight').addEventListener('change', (e)=>{
-      const v = parseInt(e.target.value,10);
-      if (isFinite(v) && v>0){ polyWeight = v; selectedPolysLayer.setStyle({color: polyColor, weight: polyWeight, fill:false}); refreshBadges(); }
-    });
-
-    // Keep map healthy when toggling sections / resizing
-    ['uploadSection','styleSection'].forEach(id=>{
-      $(id)?.addEventListener('toggle', ()=> setTimeout(()=>map.invalidateSize(), 120));
-    });
+    // Keep map healthy when toggling upload section / resizing
+    $('uploadSection')?.addEventListener('toggle', ()=> setTimeout(()=>map.invalidateSize(), 120));
     window.addEventListener('resize', ()=> setTimeout(()=>map.invalidateSize(), 80));
 
     (async()=>{
