@@ -211,7 +211,9 @@
   // สีจุดบนแผนที่: น้ำเงินเข้ม
   const DEFAULT_POINT_COLOR = '#003a8c';
   const DEFAULT_POINT_RADIUS = 5;
-  const DEFAULT_POLY_COLOR = '#888';
+
+  // สีขอบเขตตำบล (เทาเข้ม)
+  const DEFAULT_POLY_COLOR = '#2f3646';
   const DEFAULT_POLY_WEIGHT = 2;
 
   // สีจุดเมื่อเลือกจากตาราง: แดง
@@ -223,6 +225,16 @@
     const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
     map.fitBounds(thBounds);
 
+    // --------- PANE ORDER (สำคัญเรื่องซ้อนทับ) ----------
+    // polygons pane (ล่างกว่า)
+    const polysPane = map.createPane('polysPane');
+    polysPane.style.zIndex = 400;
+    polysPane.style.pointerEvents = 'none'; // ให้คลิกจุดทะลุ polygon ได้สะดวก
+
+    // points pane (สูงกว่า polygon)
+    const pointsPane = map.createPane('pointsPane');
+    pointsPane.style.zIndex = 650;
+
     const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery © Esri'});
     const baseMaps = {'OSM':osmStd,'Satellite':satellite};
@@ -231,10 +243,11 @@
     L.control.scale({imperial:false, metric:true}).addTo(map);
     setTimeout(()=>map.invalidateSize(true),300);
 
-    const thBorderLayer = L.geoJSON(null,{style:{color:'#000',weight:2,fill:false}}).addTo(map);
-    const selectedPolysLayer = L.geoJSON(null,{style:{color:DEFAULT_POLY_COLOR,weight:DEFAULT_POLY_WEIGHT,fill:false}}).addTo(map);
+    const thBorderLayer = L.geoJSON(null,{pane:'polysPane', style:{color:'#000',weight:2,fill:false}}).addTo(map);
+    // ขอบเขตตำบล (สีเทาเข้ม) — วาดบน polysPane
+    const selectedPolysLayer = L.geoJSON(null,{pane:'polysPane', style:{color:DEFAULT_POLY_COLOR,weight:DEFAULT_POLY_WEIGHT,fill:false}}).addTo(map);
 
-    // ❌ ไม่ใช้ MarkerCluster — ใช้ LayerGroup ธรรมดาแทน
+    // ไม่ใช้ MarkerCluster — ใช้ LayerGroup ธรรมดาใน pointsPane
     const pointsLayer = L.layerGroup().addTo(map);
 
     L.control.layers(null, {'จุด':pointsLayer,'ตำบล':selectedPolysLayer,'ประเทศไทย':thBorderLayer}, {collapsed:false, position:'topright'}).addTo(map);
@@ -284,7 +297,6 @@
       });
     }
 
-    // เลือกแถว -> โชว์ popup บนแผนที่
     (function bindTableRowDelegation(){
       const tb = $('pointsTableBody');
       tb.addEventListener('click', (ev)=>{
@@ -314,9 +326,9 @@
     function applyMarkerStyle(m, isSelected=false){
       if (!m) return;
       if (isSelected){
-        m.setStyle({radius:SELECTED_POINT_RADIUS, color:SELECTED_POINT_COLOR, fillColor:SELECTED_POINT_COLOR, fillOpacity:1, weight:2});
+        m.setStyle({pane:'pointsPane', radius:SELECTED_POINT_RADIUS, color:SELECTED_POINT_COLOR, fillColor:SELECTED_POINT_COLOR, fillOpacity:1, weight:2});
       }else{
-        m.setStyle({radius:DEFAULT_POINT_RADIUS, color:DEFAULT_POINT_COLOR, fillColor:DEFAULT_POINT_COLOR, fillOpacity:0.95, weight:1});
+        m.setStyle({pane:'pointsPane', radius:DEFAULT_POINT_RADIUS, color:DEFAULT_POINT_COLOR, fillColor:DEFAULT_POINT_COLOR, fillOpacity:0.95, weight:1});
       }
     }
 
@@ -324,7 +336,14 @@
       pointsLayer.clearLayers();
       points.forEach(p=>{
         if(!p.marker){
-          const m=L.circleMarker([p.lat,p.lon],{radius:DEFAULT_POINT_RADIUS,weight:1,color:DEFAULT_POINT_COLOR,fillColor:DEFAULT_POINT_COLOR,fillOpacity:0.95});
+          const m=L.circleMarker([p.lat,p.lon],{
+            pane:'pointsPane',
+            radius:DEFAULT_POINT_RADIUS,
+            weight:1,
+            color:DEFAULT_POINT_COLOR,
+            fillColor:DEFAULT_POINT_COLOR,
+            fillOpacity:0.95
+          });
           m.bindPopup(popupHtmlForPoint(p));
 
           m.on('click', ()=> setSelected(p.id, {center:false, open:true, from:'map'}));
@@ -421,6 +440,7 @@
       }
       if(feats.length){
         selectedPolysLayer.addData({type:'FeatureCollection',features:feats});
+        // ยืนยันว่าเป็นสีเทาเข้มเสมอ
         selectedPolysLayer.setStyle({color:DEFAULT_POLY_COLOR,weight:DEFAULT_POLY_WEIGHT,fill:false});
       }
     }
@@ -516,7 +536,7 @@
     map.on('click',(e)=>{
       if(!addMode) return;
       if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
-      tempAddMarker=L.marker(e.latlng,{opacity:0.9}).addTo(map);
+      tempAddMarker=L.marker(e.latlng,{pane:'pointsPane',opacity:0.9}).addTo(map);
       const lat=e.latlng.lat, lon=e.latlng.lng;
       const html=`<div><b>ตำแหน่ง</b><br><b>lat</b>: ${lat.toFixed(6)}<br><b>lon</b>: ${lon.toFixed(6)}</div>
                   <div style="margin-top:8px; text-align:center"><button class="btn" id="confirmAddBtn">ยืนยัน</button></div>`;
