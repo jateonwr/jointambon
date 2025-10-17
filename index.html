@@ -29,7 +29,7 @@
     body{background:#0b0f1a;color:#f3f6fb}
 
     .app{display:grid;grid-template-columns:460px 1fr;grid-template-areas:"left right";gap:14px;height:100%;padding:14px;box-sizing:border-box}
-    .panel-left{grid-area:left;min-width:0}
+    .panel-left{grid-area:left;min-width:0;display:flex;flex-direction:column}
     .panel-map{grid-area:right}
     #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden}
 
@@ -75,7 +75,10 @@
     .t-num{width:44px}
     .pill{display:inline-block;padding:2px 6px;border-radius:999px;border:1px solid #2b3a63;background:#0d1833;font-size:11px}
 
-    input[type="number"].celled{width:82px;background:#0e1526;border:1px solid #1f2942;color:#eaf1ff;padding:6px 8px;border-radius:8px;outline:none}
+    /* === Lat/Lon column width 95px === */
+    .col-lat, .col-lon { width:95px; }
+    input[type="number"].celled{width:95px;background:#0e1526;border:1px solid #1f2942;color:#eaf1ff;padding:6px 8px;border-radius:8px;outline:none}
+
     .row-editor{background:#0f1933}
     .row-editor td{position:sticky;top:32px;background:#0f1933;border-bottom:1px solid #233056}
 
@@ -97,12 +100,11 @@
       font-family:'Sarabun',system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial !important;letter-spacing:.1px
     }
 
-    /* Shrink name columns to half (110px) */
+    /* Name columns (ตำบล/อำเภอ/จังหวัด) narrower (110px) */
     .col-tambon,.col-amphoe,.col-changwat{min-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-    @media (max-width:1024px){.app{grid-template-columns:380px 1fr}#map{min-height:520px}}
-    @media (max-width:768px){.app{grid-template-columns:1fr;grid-template-areas:"right" "left"}#map{min-height:400px}.bar{flex-direction:column;align-items:stretch}.bar-right{justify-content:space-between}}
-    @media (max-width:420px){#map{min-height:360px}input[type="number"].celled{width:85px}.btn{padding:8px 10px}.btn-icon{width:30px;height:30px}}
+    /* Footer right-bottom */
+    .footer-right { margin-top:auto; display:flex; justify-content:flex-end; }
   </style>
 </head>
 <body>
@@ -131,8 +133,8 @@
             <tr>
               <th class="t-act">เพิ่ม/ลบ</th>
               <th class="t-num">ลำดับ</th>
-              <th>Lat</th>
-              <th>Lon</th>
+              <th class="col-lat">Lat</th>
+              <th class="col-lon">Lon</th>
               <th class="col-tambon">ตำบล</th>
               <th class="col-amphoe">อำเภอ</th>
               <th class="col-changwat">จังหวัด</th>
@@ -143,8 +145,8 @@
             <tr class="row-editor">
               <td class="t-act"><button class="btn-icon" id="addNewRowBtn" title="เพิ่มแถว">+</button></td>
               <td class="t-num"><span class="pill">#</span></td>
-              <td><input id="newLat" class="celled" type="number" step="any" placeholder="13.7563"></td>
-              <td><input id="newLon" class="celled" type="number" step="any" placeholder="100.5018"></td>
+              <td class="col-lat"><input id="newLat" class="celled" type="number" step="any" placeholder="13.7563"></td>
+              <td class="col-lon"><input id="newLon" class="celled" type="number" step="any" placeholder="100.5018"></td>
               <td colspan="4" class="small">ระบุ Lat/Lon แล้วกด “+” หรือ Toggle เพื่อเพิ่มจุดจากแผนที่</td>
             </tr>
           </tbody>
@@ -177,8 +179,8 @@
         <button class="btn btn-outline" id="exportGeojsonBtn" disabled>Export GeoJSON</button>
       </div>
 
-      <div style="margin-top:auto">
-
+      <!-- ↓ ชิดขวาล่าง -->
+      <div class="footer-right">
         <div class="small">สำนักงานทรัพยากรน้ำแห่งชาติ (สทนช.)</div>
       </div>
     </div>
@@ -252,8 +254,8 @@
         tr.innerHTML=`
           <td class="t-act"><button class="btn-icon danger" data-del="${p.id}" title="ลบ">✕</button></td>
           <td class="t-num"><span class="pill">${idx+1}</span></td>
-          <td><input class="celled" type="number" step="any" data-edit-lat="${p.id}" value="${formatLatLon(p.lat)}"></td>
-          <td><input class="celled" type="number" step="any" data-edit-lon="${p.id}" value="${formatLatLon(p.lon)}"></td>
+          <td class="col-lat"><input class="celled" type="number" step="any" data-edit-lat="${p.id}" value="${formatLatLon(p.lat)}"></td>
+          <td class="col-lon"><input class="celled" type="number" step="any" data-edit-lon="${p.id}" value="${formatLatLon(p.lon)}"></td>
           <td class="col-tambon">${p.props?.subdistrict ?? ''}</td>
           <td class="col-amphoe">${p.props?.district ?? ''}</td>
           <td class="col-changwat">${p.props?.province ?? ''}</td>
@@ -274,10 +276,11 @@
       });
     }
 
+    // === Popup: bold "lat:" & "lon:" ===
     function popupHtmlForPoint(p){
       const props = p.props||{};
       return `
-        <div>Lat: ${formatLatLon(p.lat)}<br>Lon: ${formatLatLon(p.lon)}</div>
+        <div><b>lat</b>: ${formatLatLon(p.lat)}<br><b>lon</b>: ${formatLatLon(p.lon)}</div>
         ${(props.subdistrict||props.district||props.province)? `<div style="margin-top:6px">
           <b>ตำบล</b>: ${props.subdistrict ?? '-'}<br>
           <b>อำเภอ</b>: ${props.district ?? '-'}<br>
@@ -348,7 +351,6 @@
       if(!feat) return null;
       const prop = feat.properties || {};
       const idStr = (prop[FIELD_TAMCODE]!=null && String(prop[FIELD_TAMCODE]).length) ? ('J_'+String(prop[FIELD_TAMCODE])) : null;
-      // >>> use English keys in state
       return {
         subdistrict: prop[FIELD_TAMBON] ?? null,
         district:    prop[FIELD_AMPHOE] ?? null,
@@ -456,7 +458,7 @@
       if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
       tempAddMarker=L.marker(e.latlng,{opacity:0.9}).addTo(map);
       const lat=e.latlng.lat, lon=e.latlng.lng;
-      const html=`<div><b>ตำแหน่ง</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
+      const html=`<div><b>ตำแหน่ง</b><br><b>lat</b>: ${lat.toFixed(6)}<br><b>lon</b>: ${lon.toFixed(6)}</div>
                   <div style="margin-top:8px; text-align:center"><button class="btn" id="confirmAddBtn">ยืนยัน</button></div>`;
       tempAddMarker.bindPopup(html);
       tempAddMarker.once('popupopen',()=>{
@@ -487,7 +489,6 @@
       }catch(err){ console.error(err); toast('อ่านไฟล์ล้มเหลว: ' + (err?.message||err)); }
     });
 
-    // Export: headers in English keys for attributes, UI order first
     function exportCollectRows(){
       const rows=[['ลำดับ','lat','lon','subdistrict','district','province','ID']];
       const trs=[...document.querySelectorAll('#pointsTableBody tr:not(.row-editor)')];
