@@ -47,13 +47,12 @@
     }
     .btn:disabled{opacity:.5;cursor:not-allowed}
     .btn-outline{background:transparent;border:1px solid #2a3354;color:#d6e5ff}
-    /* ปรับ .btn-danger ให้เป็นปุ่มแดงทึบ */
-    .btn-danger{background:linear-gradient(180deg,#e35b5b,#c84949);border:none;color:#fff;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:400}
+    .btn-danger{background:transparent;border:1px solid #703a3a;color:#ffbcbc}
     .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;border:1px solid #2a3354;background:#0e162b;color:#d6e5ff;font-size:18px;line-height:1}
     .btn-icon.danger{border-color:#5a2a2a;color:#ffcccc}
 
-    /* ทำให้ปุ่มชิดขอบขวา popup */
-    .btn-stretch-right{display:block;margin-left:auto}
+    /* เพิ่มปุ่มแดงแบบทึบ ใช้ใน popup ลบ */
+    .btn-danger-solid{background:linear-gradient(180deg,#e35b5b,#c84949); color:#fff; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:400}
 
     .divider{height:1px;background:#243056;margin:10px 0}
     .small{font-size:11px;color:#9fb0d0}
@@ -135,7 +134,6 @@
     .modal p{margin:0 0 14px; color:#b7c7ea; font-size:13px}
     .modal-actions{display:flex; gap:10px; justify-content:flex-end}
     .btn-ghost{background:transparent; border:1px solid #2a3354; color:#d6e5ff; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:400}
-    .btn-danger-solid{background:linear-gradient(180deg,#e35b5b,#c84949); color:#fff; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:400}
 
     /* Responsive */
     @media (max-width: 1024px){
@@ -252,8 +250,7 @@
       <p id="confirmDesc">การดำเนินการนี้จะลบจุดทั้งหมดออกจากตารางและแผนที่ ไม่สามารถกู้คืนได้</p>
       <div class="modal-actions">
         <button id="cancelClearBtn" class="btn-ghost">ยกเลิก</button>
-        <!-- #1 ปุ่ม “ยืนยัน/ตกลง” ชิดขวาสุดกล่อง -->
-        <button id="confirmClearBtn" class="btn-danger-solid btn-stretch-right">ตกลง</button>
+        <button id="confirmClearBtn" class="btn-danger-solid">ตกลง</button>
       </div>
     </div>
   </div>
@@ -272,7 +269,7 @@
   const FIELD_TAMBON   = 'tam_th';
   const FIELD_AMPHOE   = 'amp_th';
   const FIELD_CHANGWAT = 'pro_th';
-  const FIELD_TAM_CODE = 'tam_code'; // ใช้สำหรับสร้าง ID = "J-" + tam_code
+  const FIELD_TAMCODE  = 'tam_code';   // ใช้สร้าง ID = "J_" + tam_code
   const SUBD_PATH      = 'subdistricts.geojson';
   const TH_BORDER_PATH = 'th_boundary.geojson';
 
@@ -327,7 +324,7 @@
           <td>${p.props?.tambon ?? ''}</td>
           <td>${p.props?.amphoe ?? ''}</td>
           <td>${p.props?.changwat ?? ''}</td>
-          <td>${p.props?.jid ?? ''}</td>`;
+          <td>${p.props?.id ?? ''}</td>`;
         tb.appendChild(tr);
       });
 
@@ -344,15 +341,20 @@
       });
     }
 
+    // popup แสดงจุด: จัดปุ่ม “ลบ” ให้อยู่กึ่งกลางและเป็นสีแดง
     function popupHtmlForPoint(p){
       const props = p.props||{};
-      return `Lat: ${formatLatLon(p.lat)}<br>
-              Lon: ${formatLatLon(p.lon)}
-              ${(props.tambon||props.amphoe||props.changwat)? `<br><b>ตำบล</b>: ${props.tambon ?? '-'}<br><b>อำเภอ</b>: ${props.amphoe ?? '-'}<br><b>จังหวัด</b>: ${props.changwat ?? '-'}<br><b>ID</b>: ${props.jid ?? '-'}`:''}
-              <div style="margin-top:8px">
-                <!-- #2 ปุ่ม “ลบ” เป็นสีแดง และชิดขวาสุด -->
-                <button class="btn btn-danger btn-stretch-right" data-del-marker="${p.id}">ลบ</button>
-              </div>`;
+      return `
+        <div>Lat: ${formatLatLon(p.lat)}<br>Lon: ${formatLatLon(p.lon)}</div>
+        ${(props.tambon||props.amphoe||props.changwat)? `<div style="margin-top:6px">
+          <b>ตำบล</b>: ${props.tambon ?? '-'}<br>
+          <b>อำเภอ</b>: ${props.amphoe ?? '-'}<br>
+          <b>จังหวัด</b>: ${props.changwat ?? '-'}
+          ${props.id ? `<br><b>ID</b>: ${props.id}` : ''}
+        </div>`:''}
+        <div style="margin-top:10px; text-align:center">
+          <button class="btn-danger-solid" data-del-marker="${p.id}">ลบ</button>
+        </div>`;
     }
 
     function applyMarkerStyle(m){
@@ -414,12 +416,9 @@
       const feat = findSubdistrictFeature(lat, lon);
       if (!feat) return null;
       const prop = feat.properties || {};
-      const tam = prop[FIELD_TAMBON]??null;
-      const amp = prop[FIELD_AMPHOE]??null;
-      const pro = prop[FIELD_CHANGWAT]??null;
-      const code = prop[FIELD_TAM_CODE]??null;
-      const jid = code ? `J-${code}` : null; // #3 สร้าง ID = "J-" + tam_code
-      return { tambon:tam, amphoe:amp, changwat:pro, jid, __feat:feat };
+      // เพิ่ม ID = "J_" + tam_code
+      const idStr = (prop[FIELD_TAMCODE] != null && String(prop[FIELD_TAMCODE]).length) ? ('J_' + String(prop[FIELD_TAMCODE])) : null;
+      return { tambon:prop[FIELD_TAMBON]??null, amphoe:prop[FIELD_AMPHOE]??null, changwat:prop[FIELD_CHANGWAT]??null, id:idStr, __feat:feat };
     }
 
     // ===== Render selected polygons =====
@@ -508,7 +507,7 @@
       lbl.textContent = addMode ? 'ปิดการเพิ่มจุด' : 'เพิ่มจุดจากแผนที่';
       if (addMode){
         map.getContainer().classList.add('cursor-add');
-        toast('โหมดเพิ่ม: แตะแผนที่แล้ว “เพิ่มจุด”');
+        toast('โหมดเพิ่ม: แตะแผนที่แล้ว “ยืนยัน”');
       }else{
         map.getContainer().classList.remove('cursor-add');
       }
@@ -533,14 +532,10 @@
         const f = findSubdistrictFeature(p.lat, p.lon);
         if (f){
           const prop = f.properties||{};
-          const tam = prop[FIELD_TAMBON]??null;
-          const amp = prop[FIELD_AMPHOE]??null;
-          const pro = prop[FIELD_CHANGWAT]??null;
-          const code = prop[FIELD_TAM_CODE]??null;
-          const jid  = code ? `J-${code}` : null;
-          p.props = { tambon:tam, amphoe:amp, changwat:pro, jid, __feat:f };
+          const idStr = (prop[FIELD_TAMCODE] != null && String(prop[FIELD_TAMCODE]).length) ? ('J_' + String(prop[FIELD_TAMCODE])) : null;
+          p.props = { tambon:prop[FIELD_TAMBON]??null, amphoe:prop[FIELD_AMPHOE]??null, changwat:prop[FIELD_CHANGWAT]??null, id:idStr, __feat:f };
           hit++;
-        } else { p.props = {tambon:null, amphoe:null, changwat:null, jid:null}; miss++; }
+        } else { p.props = {tambon:null, amphoe:null, changwat:null, id:null}; miss++; }
       });
       refreshMarkers(); toast(`Join ใหม่: ตรง ${hit} / ไม่พบ ${miss}`);
     });
@@ -551,14 +546,14 @@
       addPointWithChecks(lat, lon); $('newLat').value=''; $('newLon').value='';
     });
 
-    // Map click add
+    // Map click add — ปรับปุ่มเป็น “ยืนยัน” และจัดให้อยู่กึ่งกลาง
     map.on('click', (e)=>{
       if (!addMode) return;
       if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
       tempAddMarker = L.marker(e.latlng, {opacity:0.9}).addTo(map);
       const lat = e.latlng.lat, lon = e.latlng.lng;
       const html = `<div><b>ตำแหน่ง</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
-                    <div style="margin-top:8px"><button class="btn btn-stretch-right" id="confirmAddBtn">เพิ่มจุด</button></div>`;
+                    <div style="margin-top:8px; text-align:center"><button class="btn" id="confirmAddBtn">ยืนยัน</button></div>`;
       tempAddMarker.bindPopup(html);
       tempAddMarker.once('popupopen', ()=>{
         const ok = $('confirmAddBtn');
@@ -594,7 +589,7 @@
 
     // Export
     function exportCollectRows(){
-      // #4 ปรับหัวตาราง export เป็นภาษาไทย และเพิ่มคอลัมน์ ID ท้ายตาราง
+      // หัวตารางเป็นไทย + ID ต่อท้าย
       const rows=[['lat','lon','ตำบล','อำเภอ','จังหวัด','ID']];
       const trs=[...document.querySelectorAll('#pointsTableBody tr:not(.row-editor)')];
       trs.forEach(tr=>{
@@ -604,8 +599,8 @@
         const tambon = tds[4]?.textContent?.trim() ?? '';
         const amphoe = tds[5]?.textContent?.trim() ?? '';
         const changwat = tds[6]?.textContent?.trim() ?? '';
-        const jid = tds[7]?.textContent?.trim() ?? '';
-        rows.push([lat,lon,tambon,amphoe,changwat,jid]);
+        const idStr = tds[7]?.textContent?.trim() ?? '';
+        rows.push([lat,lon,tambon,amphoe,changwat,idStr]);
       });
       return rows;
     }
@@ -629,9 +624,10 @@
       const rows = exportCollectRows();
       const feats = rows.slice(1).map(r=>{
         const lat = parseFloat(r[0]), lon = parseFloat(r[1]);
-        const tambon = r[2] || null, amphoe = r[3] || null, changwat = r[4] || null, jid = r[5] || null;
+        const tambon = r[2] || null, amphoe = r[3] || null, changwat = r[4] || null;
+        const idStr = r[5] || null;
         if (!isFinite(lat) || !isFinite(lon)) return null;
-        return { type:'Feature', geometry:{type:'Point', coordinates:[lon, lat]}, properties:{ lat, lon, ตำบล:tambon, อำเภอ:amphoe, จังหวัด:changwat, ID:jid } };
+        return { type:'Feature', geometry:{type:'Point', coordinates:[lon, lat]}, properties:{ lat, lon, ตำบล:tambon, อำเภอ:amphoe, จังหวัด:changwat, ID:idStr } };
       }).filter(Boolean);
       download('points_joined.geojson', JSON.stringify({type:'FeatureCollection', features:feats}), 'application/geo+json');
     });
