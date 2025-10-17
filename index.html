@@ -146,7 +146,7 @@
     }
     @media (max-width: 420px){
       #map{min-height:360px}
-      input[type="number"].celled{width:75px}  /* เดิม 100px → ลด 25% */
+      input[type="number"].celled{width:85px}
       .btn{padding:8px 10px}
       .btn-icon{width:30px;height:30px}
     }
@@ -196,7 +196,7 @@
               <td class="t-num"><span class="pill">#</span></td>
               <td><input id="newLat" class="celled" type="number" step="any" placeholder="13.7563"></td>
               <td><input id="newLon" class="celled" type="number" step="any" placeholder="100.5018"></td>
-              <td colspan="3" class="small">ระบุ Lat/Lon แล้วกด “+” หรือเปิดโหมดสวิตช์ด้านขวาเพื่อเพิ่มจุดจากแผนที่</td>
+              <td colspan="3" class="small">ระบุ Lat/Lon แล้วกด “+” หรือ Toggle เพื่อเพิ่มจุดจากแผนที่</td>
             </tr>
           </tbody>
         </table>
@@ -492,7 +492,7 @@
       lbl.textContent = addMode ? 'ปิดการเพิ่มจุด' : 'เพิ่มจุดจากแผนที่';
       if (addMode){
         map.getContainer().classList.add('cursor-add');
-        toast('โหมดเพิ่ม: แตะแผนที่แล้ว “ยืนยันเพิ่มจุด”');
+        toast('โหมดเพิ่ม: แตะแผนที่แล้ว “ยืนยัน”');
       }else{
         map.getContainer().classList.remove('cursor-add');
       }
@@ -536,8 +536,8 @@
       if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
       tempAddMarker = L.marker(e.latlng, {opacity:0.9}).addTo(map);
       const lat = e.latlng.lat, lon = e.latlng.lng;
-      const html = `<div><b>ยืนยันเพิ่มจุดนี้</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
-                    <div style="margin-top:8px"><button class="btn" id="confirmAddBtn">ยืนยันเพิ่มจุด</button></div>`;
+      const html = `<div><b>ตำแหน่ง</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
+                    <div style="margin-top:8px"><button class="btn" id="confirmAddBtn">ยืนยัน</button></div>`;
       tempAddMarker.bindPopup(html);
       tempAddMarker.once('popupopen', ()=>{
         const ok = $('confirmAddBtn');
