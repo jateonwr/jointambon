@@ -116,11 +116,11 @@
       <!-- Table header bar -->
       <div class="bar">
         <div class="bar-left">
-          <h2 style="margin:0">ตารางจุด</h2>
-          <button class="btn btn-outline" id="rejoinBtn" title="คำนวณใหม่จาก polygon">Join ใหม่</button>
+          <h2 style="margin:0">ตารางแอตทริบิวต์ (Attribute Table)</h2>
+          <button class="btn btn-outline" id="rejoinBtn" title="คำนวณใหม่จาก polygon">Re-Join Attributes</button>
         </div>
         <div class="bar-right">
-          <button class="btn" id="toggleAddModeBtn" title="เพิ่มจากแผนที่">เริ่มโหมดเพิ่มจากแผนที่</button>
+          <button class="btn" id="toggleAddModeBtn" title="เพิ่มจากแผนที่">เพิ่มจุดจากแผนที่</button>
         </div>
       </div>
 
@@ -128,8 +128,8 @@
         <table>
           <thead>
             <tr>
-              <th class="t-act">ทำรายการ</th>
-              <th class="t-num">#</th>
+              <th class="t-act">เพิ่ม/ลบ</th>
+              <th class="t-num">ลำดับ</th>
               <th>Lat</th>
               <th>Lon</th>
               <th>ตำบล</th>
@@ -140,17 +140,17 @@
           <tbody id="pointsTableBody">
             <tr class="row-editor">
               <td class="t-act"><button class="btn-icon" id="addNewRowBtn" title="เพิ่มแถว">+</button></td>
-              <td class="t-num"><span class="pill">ใหม่</span></td>
+              <td class="t-num"><span class="pill">#</span></td>
               <td><input id="newLat" class="celled" type="number" step="any" placeholder="13.7563"></td>
               <td><input id="newLon" class="celled" type="number" step="any" placeholder="100.5018"></td>
-              <td colspan="3" class="small">พิมพ์ Lat/Lon แล้วกด “+” หรือใช้โหมดเพิ่มจากแผนที่</td>
+              <td colspan="3" class="small">ระบุ Lat/Lon แล้วกด “+” หรือเพิ่มจุดจากแผนที่</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div class="countRow" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:8px;color:#9fb0d0;font-size:12px">
-        <div>จำนวนจุดทั้งหมด: <span id="pointCount">0</span><span class="note"> — แตะจุดบนแผนที่เพื่อลบได้</span></div>
+        <div>จำนวนจุดทั้งหมด: <span id="pointCount">0</span><span class="note"> (แตะจุดบนแผนที่เพื่อลบได้)</span></div>
         <div><button class="btn btn-outline" id="clearPointsBtn">ล้างจุดทั้งหมด</button></div>
       </div>
 
@@ -182,7 +182,7 @@
 
       <div style="margin-top:auto">
         <div class="divider"></div>
-        <div class="small">Static • GitHub Pages • Leaflet/Turf/SheetJS • Sarabun</div>
+        <div class="small">สำนักงานทรัพยากรน้ำแห่งชาติ (สทนช.)</div>
       </div>
     </div>
   </div>
