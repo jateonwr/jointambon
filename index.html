@@ -492,7 +492,7 @@
       lbl.textContent = addMode ? 'ปิดการเพิ่มจุด' : 'เพิ่มจุดจากแผนที่';
       if (addMode){
         map.getContainer().classList.add('cursor-add');
-        toast('โหมดเพิ่ม: แตะแผนที่แล้ว “ยืนยัน”');
+        toast('โหมดเพิ่ม: แตะแผนที่แล้ว “เพิ่มจุด”');
       }else{
         map.getContainer().classList.remove('cursor-add');
       }
@@ -537,7 +537,7 @@
       tempAddMarker = L.marker(e.latlng, {opacity:0.9}).addTo(map);
       const lat = e.latlng.lat, lon = e.latlng.lng;
       const html = `<div><b>ตำแหน่ง</b><br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}</div>
-                    <div style="margin-top:8px"><button class="btn" id="confirmAddBtn">ยืนยัน</button></div>`;
+                    <div style="margin-top:8px"><button class="btn" id="confirmAddBtn">เพิ่มจุด</button></div>`;
       tempAddMarker.bindPopup(html);
       tempAddMarker.once('popupopen', ()=>{
         const ok = $('confirmAddBtn');
