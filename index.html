@@ -24,7 +24,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
-    :root{--bg:#0b1020;--card:#10182b;--muted:#a9b0c0;--accent:#1e90ff;--danger:#e35b5b}
+    :root{--bg:#0b1020;--card:#10182b;--muted:#a9b0c0;--accent:#1e90ff;--danger:#e35b5b;--sel:#ffd166}
     html,body{height:100%;margin:0;font-family:'Sarabun',system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
     body{background:#0b0f1a;color:#f3f6fb}
 
@@ -71,12 +71,14 @@
     thead th{position:sticky;top:0;background:#101a34;color:#e8f0ff;border-bottom:1px solid #243056;padding:8px;font-weight:400;text-align:left}
     tbody td{border-bottom:1px solid #1d2846;padding:6px 8px;color:#dbe6ff;vertical-align:middle}
     tbody tr:hover{background:#0f1830}
+    /* highlight selected table row */
+    tbody tr.is-selected{background:#14234a}
     .t-act{width:60px;text-align:center}
     .t-num{width:44px}
     .pill{display:inline-block;padding:2px 6px;border-radius:999px;border:1px solid #2b3a63;background:#0d1833;font-size:11px}
 
-    /* === Lat/Lon column width 95px === */
-    .col-lat, .col-lon { width:95px; }
+    /* Lat/Lon 95px */
+    .col-lat,.col-lon{width:95px}
     input[type="number"].celled{width:95px;background:#0e1526;border:1px solid #1f2942;color:#eaf1ff;padding:6px 8px;border-radius:8px;outline:none}
 
     .row-editor{background:#0f1933}
@@ -100,7 +102,7 @@
       font-family:'Sarabun',system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial !important;letter-spacing:.1px
     }
 
-    /* Name columns (ตำบล/อำเภอ/จังหวัด) narrower (110px) */
+    /* Name columns narrower (110px) */
     .col-tambon,.col-amphoe,.col-changwat{min-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
     @media (max-width:1024px){.app{grid-template-columns:380px 1fr}#map{min-height:520px}}
@@ -220,6 +222,10 @@
   const DEFAULT_POLY_COLOR = '#888';
   const DEFAULT_POLY_WEIGHT = 2;
 
+  // selected marker style
+  const SELECTED_POINT_RADIUS = 7;
+  const SELECTED_POINT_COLOR  = getComputedStyle(document.documentElement).getPropertyValue('--sel')?.trim() || '#ffd166';
+
   document.addEventListener('DOMContentLoaded', () => {
     const map = L.map('map', {preferCanvas:true});
     const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
@@ -244,6 +250,7 @@
     let subdistrictPolys=null, subdBBoxes=[];
     let thBorderPolys=null, thBBoxes=[];
     let addMode=false; let tempAddMarker=null;
+    let selectedId=null; // <-- current selected point id
 
     function renderTable(){
       const tb = $('pointsTableBody');
@@ -252,6 +259,8 @@
 
       points.forEach((p,idx)=>{
         const tr=document.createElement('tr');
+        tr.dataset.id = String(p.id);
+        if (p.id===selectedId) tr.classList.add('is-selected');
         tr.innerHTML=`
           <td class="t-act"><button class="btn-icon danger" data-del="${p.id}" title="ลบ">✕</button></td>
           <td class="t-num"><span class="pill">${idx+1}</span></td>
@@ -266,8 +275,20 @@
 
       $('pointCount').textContent = points.length.toLocaleString();
 
+      // row click -> select & open popup
+      tb.querySelectorAll('tr[data-id]').forEach(tr=>{
+        tr.addEventListener('click', (ev)=>{
+          // หลีกเลี่ยงตอนกดปุ่มลบหรือแก้ไข input
+          if ((ev.target instanceof HTMLElement) && (ev.target.closest('button') || ev.target.closest('input'))) return;
+          const id = Number(tr.dataset.id);
+          setSelected(id, {center:true, open:true, from:'table'});
+        });
+      });
+
       tb.querySelectorAll('button[data-del]').forEach(btn=>{
-        btn.addEventListener('click', ()=> removePointById(Number(btn.getAttribute('data-del'))));
+        btn.addEventListener('click', ()=>{
+          removePointById(Number(btn.getAttribute('data-del')))
+        });
       });
       tb.querySelectorAll('input[data-edit-lat]').forEach(inp=>{
         inp.addEventListener('change', ()=> updatePointCoord(Number(inp.getAttribute('data-edit-lat')), toNumberMaybe(inp.value), null));
@@ -277,7 +298,7 @@
       });
     }
 
-    // === Popup: bold "lat:" & "lon:" ===
+    // popup: bold lat/lon
     function popupHtmlForPoint(p){
       const props = p.props||{};
       return `
@@ -293,9 +314,13 @@
         </div>`;
     }
 
-    function applyMarkerStyle(m){
+    function applyMarkerStyle(m, isSelected=false){
       if (!m) return;
-      m.setStyle({radius:DEFAULT_POINT_RADIUS,color:DEFAULT_POINT_COLOR,fillColor:DEFAULT_POINT_COLOR,fillOpacity:0.9,weight:1});
+      if (isSelected){
+        m.setStyle({radius:SELECTED_POINT_RADIUS, color:SELECTED_POINT_COLOR, fillColor:SELECTED_POINT_COLOR, fillOpacity:1, weight:2});
+      }else{
+        m.setStyle({radius:DEFAULT_POINT_RADIUS, color:DEFAULT_POINT_COLOR, fillColor:DEFAULT_POINT_COLOR, fillOpacity:0.9, weight:1});
+      }
     }
 
     function refreshMarkers(){
@@ -304,7 +329,12 @@
         if(!p.marker){
           const m=L.circleMarker([p.lat,p.lon],{radius:DEFAULT_POINT_RADIUS,weight:1,color:DEFAULT_POINT_COLOR,fillColor:DEFAULT_POINT_COLOR,fillOpacity:0.9});
           m.bindPopup(popupHtmlForPoint(p));
-          m.on('popupopen',(ev)=>{
+
+          // marker events -> sync table selection
+          m.on('click', ()=> setSelected(p.id, {center:false, open:true, from:'map'}));
+          m.on('popupopen', ()=> setSelected(p.id, {center:false, open:false, from:'map'}));
+
+          m.on('popupopen', (ev)=>{
             const btn=ev.popup._contentNode.querySelector('button[data-del-marker]');
             if(btn) btn.addEventListener('click', ()=>{ removePointById(p.id); map.closePopup(); });
           });
@@ -312,8 +342,8 @@
         }else{
           p.marker.setLatLng([p.lat,p.lon]);
           p.marker.setPopupContent(popupHtmlForPoint(p));
-          applyMarkerStyle(p.marker);
         }
+        applyMarkerStyle(p.marker, p.id===selectedId);
         cluster.addLayer(p.marker);
       });
 
@@ -324,6 +354,36 @@
 
       renderSelectedPolys();
       renderTable();
+    }
+
+    // select logic (table <-> map)
+    function setSelected(id, {center=true, open=true, from=''}={}){
+      if (id==null) return;
+      const p = points.find(pp=>pp.id===id);
+      if (!p) return;
+      selectedId = id;
+
+      // update table highlight
+      document.querySelectorAll('#pointsTableBody tr[data-id]').forEach(tr=>{
+        tr.classList.toggle('is-selected', Number(tr.dataset.id)===selectedId);
+      });
+
+      // update markers style
+      points.forEach(pp=> applyMarkerStyle(pp.marker, pp.id===selectedId));
+
+      // scroll the row into view if selection originated from map
+      if (from==='map'){
+        const row = document.querySelector(`#pointsTableBody tr[data-id="${id}"]`);
+        row && row.scrollIntoView({block:'nearest', behavior:'smooth'});
+      }
+
+      // move/zoom and open popup when selection originates from table or programmatic
+      if (center && p.marker){
+        cluster.zoomToShowLayer(p.marker, ()=>{
+          map.panTo(p.marker.getLatLng());
+          if (open) p.marker.openPopup();
+        });
+      }
     }
 
     function isInsideThailand(lat, lon){
@@ -384,7 +444,10 @@
       if(!props){ toast('พิกัดอยู่นอกขอบเขต GeoJSON — ไม่สามารถเพิ่มจุดได้'); return; }
       const {__feat, ...onlyProps}=props;
       const p={id:nextId++,lat,lon,props:onlyProps}; p.props.__feat=__feat;
-      points.push(p); refreshMarkers();
+      points.push(p);
+      refreshMarkers();
+      // auto-select the newly added point
+      setSelected(p.id, {center:true, open:false, from:'auto'});
     }
     function updatePointCoord(id, newLat, newLon){
       const p=points.find(pp=>pp.id===id); if(!p) return;
@@ -396,15 +459,20 @@
       if(!props){ toast('อยู่นอกขอบเขต GeoJSON — ยกเลิก'); renderTable(); return; }
       const {__feat,...onlyProps}=props;
       p.lat=lat; p.lon=lon; p.props=onlyProps; p.props.__feat=__feat;
-      if(p.marker){ p.marker.setLatLng([p.lat,p.lon]); applyMarkerStyle(p.marker); }
+      if(p.marker){ p.marker.setLatLng([p.lat,p.lon]); }
       refreshMarkers();
+      if (selectedId===id){
+        setSelected(id, {center:true, open:true, from:'edit'});
+      }
     }
     function removePointById(id){
       const idx=points.findIndex(p=>p.id===id); if(idx===-1) return;
       const p=points[idx];
       if(p.marker){ map.hasLayer(p.marker)&&map.removeLayer(p.marker); }
       if(cluster){ cluster.removeLayer(p.marker); }
-      points.splice(idx,1); refreshMarkers(); toast('ลบจุดแล้ว');
+      points.splice(idx,1);
+      if (selectedId===id) selectedId=null;
+      refreshMarkers(); toast('ลบจุดแล้ว');
     }
 
     const modal=$('confirmModal');
@@ -429,7 +497,7 @@
     $('toggleAddModeBtn').addEventListener('click', ()=> setAddMode(!addMode));
 
     $('clearPointsBtn').addEventListener('click', openConfirm);
-    btnConfirm.addEventListener('click', ()=>{ points=[]; cluster.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); closeConfirm(); });
+    btnConfirm.addEventListener('click', ()=>{ points=[]; selectedId=null; cluster.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); closeConfirm(); });
 
     $('rejoinBtn').addEventListener('click', ()=>{
       if(!subdistrictPolys){ toast('ยังไม่มีขอบเขต'); return; }
@@ -447,6 +515,10 @@
         }
       });
       refreshMarkers(); toast(`Join ใหม่: ตรง ${hit} / ไม่พบ ${miss}`);
+      if (selectedId!=null){
+        const p=points.find(x=>x.id===selectedId);
+        if (p) setSelected(selectedId,{center:false,open:false});
+      }
     });
 
     $('addNewRowBtn').addEventListener('click', ()=>{
@@ -454,7 +526,7 @@
       addPointWithChecks(lat, lon); $('newLat').value=''; $('newLon').value='';
     });
 
-    // Map click popup: also bold lat/lon
+    // Map click popup for add
     map.on('click',(e)=>{
       if(!addMode) return;
       if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
