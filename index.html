@@ -84,6 +84,21 @@
     details.collapser[open] > summary::before{ transform:rotate(180deg); }
     .collapser-body{ margin-top:8px }
 
+    /* Modal confirm */
+    .modal-overlay{
+      position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+      background:rgba(0,0,0,.55); z-index:99999; padding:16px;
+    }
+    .modal{
+      width:min(480px,100%); background:#0e1526; border:1px solid #243056; border-radius:14px;
+      box-shadow:0 20px 60px rgba(0,0,0,.5); padding:18px;
+    }
+    .modal h3{margin:0 0 8px; font-size:16px}
+    .modal p{margin:0 0 14px; color:#b7c7ea; font-size:13px}
+    .modal-actions{display:flex; gap:10px; justify-content:flex-end}
+    .btn-ghost{background:transparent; border:1px solid #2a3354; color:#d6e5ff; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:700}
+    .btn-danger-solid{background:linear-gradient(180deg,#e35b5b,#c84949); color:#fff; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:700}
+
     /* Responsive */
     @media (max-width: 1024px){
       .app{grid-template-columns:380px 1fr;}
@@ -187,6 +202,18 @@
     </div>
   </div>
 
+  <!-- Modal: Confirm clear all -->
+  <div id="confirmModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmDesc">
+    <div class="modal">
+      <h3 id="confirmTitle">ล้างจุดทั้งหมด?</h3>
+      <p id="confirmDesc">การดำเนินการนี้จะลบจุดทั้งหมดออกจากตารางและแผนที่ ไม่สามารถกู้คืนได้</p>
+      <div class="modal-actions">
+        <button id="cancelClearBtn" class="btn-ghost">ยกเลิก</button>
+        <button id="confirmClearBtn" class="btn-danger-solid">ตกลง</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" style="display:none"></div>
 
   <script>
@@ -204,7 +231,7 @@
   const SUBD_PATH      = 'subdistricts.geojson';
   const TH_BORDER_PATH = 'th_boundary.geojson';
 
-  // Fixed styles (no style UI anymore)
+  // Fixed styles
   const DEFAULT_POINT_COLOR = '#1e90ff';
   const DEFAULT_POINT_RADIUS = 5;
   const DEFAULT_POLY_COLOR = '#888';
@@ -216,13 +243,11 @@
     const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
     map.fitBounds(thBounds);
 
-    // Basemaps
     const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19, attribution:'Imagery © Esri'});
     const baseMaps = {'OSM':osmStd,'Satellite':satellite};
     L.control.layers(baseMaps, null, {collapsed:false, position:'topright'}).addTo(map);
 
-    // Scale
     L.control.scale({imperial:false, metric:true}).addTo(map);
     setTimeout(()=>map.invalidateSize(true),300);
 
@@ -232,7 +257,6 @@
     const cluster = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
     map.addLayer(cluster);
 
-    // Overlays
     L.control.layers(null, {'จุด': cluster,'ตำบล': selectedPolysLayer,'ประเทศไทย': thBorderLayer}, {collapsed:false, position:'topright'}).addTo(map);
 
     // ===== State =====
@@ -392,16 +416,54 @@
       points.splice(idx,1); refreshMarkers(); toast('ลบจุดแล้ว');
     }
 
+    // ===== Modal helpers =====
+    const modal = $('confirmModal');
+    const btnConfirm = $('confirmClearBtn');
+    const btnCancel = $('cancelClearBtn');
+    let lastFocusedEl = null;
+
+    function openConfirm(){
+      lastFocusedEl = document.activeElement;
+      modal.style.display = 'flex';
+      btnCancel.focus();
+      document.body.style.overflow = 'hidden';
+    }
+    function closeConfirm(){
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+      if (lastFocusedEl && lastFocusedEl.focus) lastFocusedEl.focus();
+    }
+
+    // Close on overlay click (outside box)
+    modal.addEventListener('click', (e)=>{
+      if (e.target === modal) closeConfirm();
+    });
+    // Keyboard: Esc=cancel, Enter=confirm (default button = confirm)
+    document.addEventListener('keydown', (e)=>{
+      if (modal.style.display === 'flex'){
+        if (e.key === 'Escape'){ e.preventDefault(); closeConfirm(); }
+        else if (e.key === 'Enter'){ e.preventDefault(); btnConfirm.click(); }
+      }
+    });
+    btnCancel.addEventListener('click', closeConfirm);
+
     // ===== UI Controls =====
     function setAddMode(on){
       addMode = !!on;
-      $('toggleAddModeBtn').textContent = addMode ? 'จบโหมดเพิ่มจากแผนที่' : 'เริ่มโหมดเพิ่มจากแผนที่';
+      $('toggleAddModeBtn').textContent = addMode ? 'จบโหมดเพิ่มจากแผนที่' : 'เพิ่มจุดจากแผนที่';
       if (addMode){ map.getContainer().classList.add('cursor-add'); toast('โหมดเพิ่ม: แตะแผนที่แล้ว “ยืนยันเพิ่มจุด”'); }
       else { map.getContainer().classList.remove('cursor-add'); }
       if (tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
     }
     $('toggleAddModeBtn').addEventListener('click', ()=> setAddMode(!addMode));
-    $('clearPointsBtn').addEventListener('click', ()=>{ points=[]; cluster.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); });
+
+    // Show confirm before clearing
+    $('clearPointsBtn').addEventListener('click', openConfirm);
+    btnConfirm.addEventListener('click', ()=>{
+      points=[]; cluster.clearLayers(); refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว');
+      closeConfirm();
+    });
+
     $('rejoinBtn').addEventListener('click', ()=>{
       if (!subdistrictPolys){ toast('ยังไม่มีขอบเขต'); return; }
       let hit=0, miss=0;
