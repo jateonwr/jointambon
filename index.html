@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Leaflet – TH Points • Selected Polygons + Satellite + Responsive</title>
 
-  <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <!-- Fonts: ปรับน้ำหนักเป็น 200,300,400,500 -->
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@200;300;400;500&display=swap" rel="stylesheet">
 
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -38,10 +38,13 @@
     .panel-map{grid-area:right}
     #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden}
 
-    h1{font-size:18px;margin:.2rem 0 10px;font-weight:700}
-    h2{font-size:14px;margin:16px 0 8px;color:var(--muted);font-weight:700;letter-spacing:.2px}
+    h1{font-size:18px;margin:.2rem 0 10px;font-weight:500}
+    h2{font-size:14px;margin:16px 0 8px;color:var(--muted);font-weight:500;letter-spacing:.2px}
 
-    .btn{background:linear-gradient(180deg,#1e90ff,#1475d6);border:none;color:white;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:700}
+    .btn{
+      background:linear-gradient(180deg,#1e90ff,#1475d6);border:none;color:white;
+      padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:500
+    }
     .btn:disabled{opacity:.5;cursor:not-allowed}
     .btn-outline{background:transparent;border:1px solid #2a3354;color:#d6e5ff}
     .btn-danger{background:transparent;border:1px solid #703a3a;color:#ffbcbc}
@@ -58,10 +61,16 @@
     .bar-left{display:flex;align-items:center;gap:10px}
     .bar-right{display:flex;align-items:center;gap:8px}
 
-    /* Table */
-    .tableWrap{min-height:220px;max-height:360px;overflow:auto;border:1px solid #243056;border-radius:10px;background:#0e1526}
+    /* Table (สูงขึ้นอีกเท่าตัว) */
+    .tableWrap{
+      min-height:440px;            /* เดิม 220px */
+      max-height:720px;            /* เดิม 360px */
+      overflow:auto;border:1px solid #243056;border-radius:10px;background:#0e1526
+    }
     table{width:100%;border-collapse:collapse;font-size:12.5px}
-    thead th{position:sticky;top:0;background:#101a34;color:#e8f0ff;border-bottom:1px solid #243056;padding:8px;font-weight:700;text-align:left}
+    thead th{
+      position:sticky;top:0;background:#101a34;color:#e8f0ff;border-bottom:1px solid #243056;padding:8px;font-weight:500;text-align:left
+    }
     tbody td{border-bottom:1px solid #1d2846;padding:6px 8px;color:#dbe6ff;vertical-align:middle}
     tbody tr:hover{background:#0f1830}
     .t-act{width:60px;text-align:center}
@@ -77,7 +86,7 @@
       padding:8px 10px; margin:8px 0;
     }
     details.collapser > summary{
-      cursor:pointer; list-style:none; font-weight:700; color:#cfe0ff;
+      cursor:pointer; list-style:none; font-weight:500; color:#cfe0ff;
       display:flex; align-items:center; gap:8px; user-select:none;
     }
     details.collapser > summary::before{content:"▾"; display:inline-block; transform:rotate(0deg); transition:transform .15s ease; opacity:.8}
@@ -93,11 +102,11 @@
       width:min(480px,100%); background:#0e1526; border:1px solid #243056; border-radius:14px;
       box-shadow:0 20px 60px rgba(0,0,0,.5); padding:18px;
     }
-    .modal h3{margin:0 0 8px; font-size:16px}
+    .modal h3{margin:0 0 8px; font-size:16px; font-weight:500}
     .modal p{margin:0 0 14px; color:#b7c7ea; font-size:13px}
     .modal-actions{display:flex; gap:10px; justify-content:flex-end}
-    .btn-ghost{background:transparent; border:1px solid #2a3354; color:#d6e5ff; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:700}
-    .btn-danger-solid{background:linear-gradient(180deg,#e35b5b,#c84949); color:#fff; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:700}
+    .btn-ghost{background:transparent; border:1px solid #2a3354; color:#d6e5ff; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:500}
+    .btn-danger-solid{background:linear-gradient(180deg,#e35b5b,#c84949); color:#fff; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:500}
 
     /* Responsive */
     @media (max-width: 1024px){
@@ -438,7 +447,7 @@
     modal.addEventListener('click', (e)=>{
       if (e.target === modal) closeConfirm();
     });
-    // Keyboard: Esc=cancel, Enter=confirm (default button = confirm)
+    // Keyboard: Esc=cancel, Enter=confirm
     document.addEventListener('keydown', (e)=>{
       if (modal.style.display === 'flex'){
         if (e.key === 'Escape'){ e.preventDefault(); closeConfirm(); }
