@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-  <!-- Leaflet.DistortableImage (สำหรับลาก/ยืด/หมุน/บิดภาพ) -->
+  <!-- Leaflet.DistortableImage (ลาก/ยืด/หมุน/บิดภาพ) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet.distortableimage@0.12.1/dist/leaflet.distortableimage.css"/>
   <script src="https://unpkg.com/leaflet.distortableimage@0.12.1/dist/leaflet.distortableimage.js"></script>
 
@@ -279,7 +279,7 @@
     const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
     map.fitBounds(thBounds);
 
-    // panes: polygons under, image overlays middle (toggle pointer-events), points top
+    // panes
     const polysPane = map.createPane('polysPane');
     polysPane.style.zIndex = 400; polysPane.style.pointerEvents = 'none';
 
@@ -289,7 +289,6 @@
 
     map.createPane('pointsPane').style.zIndex = 650;
 
-    // pane for user-drawn rectangle (over image, under points)
     const drawPane = map.createPane('drawPane');
     drawPane.style.zIndex = 600;
 
@@ -304,10 +303,8 @@
     const selectedPolysLayer = L.geoJSON(null,{pane:'polysPane', style:{color:DEFAULT_POLY_COLOR,weight:DEFAULT_POLY_WEIGHT,fill:false}}).addTo(map);
     const pointsLayer = L.layerGroup().addTo(map);
 
-    // FeatureGroup to hold a single drawn rectangle
     const drawGroup = L.featureGroup(null, {pane:'drawPane'}).addTo(map);
 
-    // One overlay control for all overlays (existing + images)
     const overlayCtl = L.control.layers(null, {'จุด':pointsLayer,'ตำบล':selectedPolysLayer,'ประเทศไทย':thBorderLayer}, {collapsed:false, position:'topright'}).addTo(map);
 
     let points=[], nextId=1;
@@ -620,7 +617,7 @@
       download('points_joined.geojson', JSON.stringify({type:'FeatureCollection',features:feats}), 'application/geo+json');
     });
 
-    // ===== Image Overlay logic (DistortableImage) =====
+    // ===== Image Overlay logic =====
     const imageState = {
       pendingUrl: null,
       pendingName: null,
@@ -628,9 +625,15 @@
     };
     let overlaySeq = 1;
 
+    // validateBounds (ออโต้สลับค่าที่กลับด้าน)
     function validateBounds(swLat, swLon, neLat, neLon){
-      return isFinite(swLat) && isFinite(swLon) && isFinite(neLat) && isFinite(neLon) && swLat < neLat && swLon < neLon;
+      let sLat = swLat, sLon = swLon, nLat = neLat, nLon = neLon;
+      if (!isFinite(sLat) || !isFinite(sLon) || !isFinite(nLat) || !isFinite(nLon)) return null;
+      if (sLat > nLat) [sLat, nLat] = [nLat, sLat];
+      if (sLon > nLon) [sLon, nLon] = [nLon, sLon];
+      return { sLat, sLon, nLat, nLon };
     }
+
     function applyPendingToInputsFromMapBounds(){
       const b = map.getBounds();
       $('swLat').value = b.getSouthWest().lat.toFixed(6);
@@ -660,7 +663,6 @@
       row.querySelector(`[data-op="${entry.id}"]`).addEventListener('input', (e)=>{
         const v = Math.max(0, Math.min(100, parseInt(e.target.value||'60',10)))/100;
         entry.opacity = v; entry.layer.setOpacity(v);
-        // sync ตัวเลื่อนใหญ่ถ้าเป็นภาพล่าสุด
         if(getLastOverlayEntry()?.id === entry.id){
           $('imageOpacity').value = Math.round(v*100);
           $('imageOpacityLabel').textContent = Math.round(v*100) + '%';
@@ -694,7 +696,9 @@
       }
     }
     function syncInputsFromCorners(layer){
-      const cs = layer.getCorners(); // NW, NE, SE, SW
+      // ใช้ bounding box จากมุม 4 จุด (NW, NE, SE, SW)
+      if(!layer.getCorners) return;
+      const cs = layer.getCorners();
       if(!cs || cs.length !== 4) return;
       const lats = cs.map(c=>c.lat), lons = cs.map(c=>c.lng);
       const minLat = Math.min(...lats), maxLat = Math.max(...lats);
@@ -708,7 +712,7 @@
       if(!entry) return;
       if(entry.layer && entry.layer.editing && !entry.layer.editing._enabled){
         setImagePaneInteractive(true);
-        entry.layer.options.pane = 'imagePane'; // ensure pane
+        entry.layer.options.pane = 'imagePane';
         entry.layer.bringToFront?.();
         entry.layer.editing.enable();
         toast('เข้าโหมดแก้กรอบ: ลากหูจับเพื่อปรับภาพ แล้วกด “ล็อคกรอบ”');
@@ -726,25 +730,42 @@
       }
     }
 
+    // วางภาพ (มี fallback)
     function placePendingImage(){
       if(!imageState.pendingUrl){ toast('ยังไม่ได้เลือกไฟล์ภาพ'); return; }
+
       const swLat=toNumberMaybe($('swLat').value), swLon=toNumberMaybe($('swLon').value),
             neLat=toNumberMaybe($('neLat').value), neLon=toNumberMaybe($('neLon').value);
-      if(!validateBounds(swLat,swLon,neLat,neLon)){ toast('พิกัดกรอบภาพไม่ถูกต้อง (ต้อง SW < NE)'); return; }
 
-      const bounds = L.latLngBounds([swLat, swLon], [neLat, neLon]);
+      const fixed = validateBounds(swLat, swLon, neLat, neLon);
+      if(!fixed){ toast('พิกัดกรอบภาพไม่ถูกต้อง'); console.warn('Invalid bounds', {swLat, swLon, neLat, neLon}); return; }
+      const { sLat, sLon, nLat, nLon } = fixed;
+
+      const bounds = L.latLngBounds([sLat, sLon], [nLat, nLon]);
       const op = (parseInt($('imageOpacity').value,10)||60)/100;
       const nw = bounds.getNorthWest(), ne = bounds.getNorthEast(),
             se = bounds.getSouthEast(), sw = bounds.getSouthWest();
 
-      const layer = L.distortableImageOverlay(imageState.pendingUrl, {
-        opacity: op,
-        corners: [nw, ne, se, sw],
-        actions: [],
-        pane: 'imagePane',
-        interactive: true
-      });
-      layer.addTo(map);
+      let layer;
+      if (typeof L.distortableImageOverlay === 'function') {
+        try{
+          layer = L.distortableImageOverlay(imageState.pendingUrl, {
+            opacity: op,
+            corners: [nw, ne, se, sw],
+            actions: [],
+            pane: 'imagePane',
+            interactive: true
+          });
+          layer.addTo(map);
+        }catch(e){
+          console.error('DistortableImage failed, fallback to ImageOverlay', e);
+        }
+      }
+      if (!layer) {
+        layer = L.imageOverlay(imageState.pendingUrl, bounds, {pane:'imagePane', opacity: op});
+        layer.addTo(map);
+        toast('ปลั๊กอินแก้กรอบไม่พร้อม: แสดงภาพแบบปกติ');
+      }
 
       const name = imageState.pendingName || ('overlay_'+overlaySeq++);
       overlayCtl.addOverlay(layer, 'ภาพ: '+name);
@@ -758,10 +779,10 @@
       };
       imageState.overlays.push(entry);
       createOverlayItemRow(entry);
-
-      // เปิดการควบคุมสำหรับภาพล่าสุด
       enableGlobalImageControls(entry);
-      toast('วางภาพบนแผนที่แล้ว — ใช้ “เข้าโหมดแก้กรอบ” เพื่อปรับ');
+
+      // เลื่อนกล้องให้เห็นภาพแน่นอน
+      map.fitBounds(bounds, {animate:true, padding:[20,20]});
     }
 
     // Global controls (ภาพล่าสุด)
@@ -788,17 +809,19 @@
     $('editFrameBtn').addEventListener('click', ()=>{
       const last = getLastOverlayEntry();
       if(!last){ toast('ยังไม่มีภาพบนแผนที่'); return; }
+      if(typeof last.layer.editing === 'undefined'){ toast('เลเยอร์นี้เป็น ImageOverlay ปกติ แก้กรอบไม่ได้'); return; }
       enterEditMode(last);
     });
     $('lockFrameBtn').addEventListener('click', ()=>{
       const last = getLastOverlayEntry();
       if(!last){ toast('ยังไม่มีภาพบนแผนที่'); return; }
+      if(typeof last.layer.editing === 'undefined'){ toast('เลเยอร์นี้เป็น ImageOverlay ปกติ แก้กรอบไม่ได้'); return; }
       lockEditMode(last);
     });
     $('resetFrameBtn').addEventListener('click', ()=>{
       const last = getLastOverlayEntry();
       if(!last){ toast('ยังไม่มีภาพบนแผนที่'); return; }
-      // รีเซ็ตมุมกลับค่าตั้งต้น + อัปเดตช่องพิกัด
+      if(typeof last.layer.setCorners !== 'function'){ toast('เลเยอร์นี้เป็น ImageOverlay ปกติ รีเซ็ตมุมไม่ได้'); return; }
       last.layer.setCorners(last.initialCorners);
       syncInputsFromCorners(last.layer);
       toast('รีเซ็ตกรอบเป็นค่าเริ่มต้นแล้ว');
@@ -866,7 +889,23 @@
     $('imageOverlaySection')?.addEventListener('toggle',()=>setTimeout(()=>map.invalidateSize(),120));
     window.addEventListener('resize',()=>setTimeout(()=>map.invalidateSize(),80));
 
-    (async()=>{ try{ await loadSubdistricts(); await loadThailandBorder(); toast('โหลดขอบเขตสำเร็จ'); map.invalidateSize(); }catch(err){ console.error(err); toast('โหลดขอบเขตไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson / th_boundary.geojson'); } })();
+    (async()=>{ 
+      try{ 
+        await loadSubdistricts(); 
+        await loadThailandBorder(); 
+        toast('โหลดขอบเขตสำเร็จ'); 
+        map.invalidateSize(); 
+      }catch(err){ 
+        console.error(err); 
+        toast('โหลดขอบเขตไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson / th_boundary.geojson'); 
+      } 
+    })();
+
+    // แจ้งเตือนถ้าปลั๊กอิน DistortableImage ไม่พร้อม
+    if (typeof L.distortableImageOverlay !== 'function') {
+      console.warn('Leaflet.DistortableImage plugin not detected. Using fallback mode.');
+      toast('โหมดแก้กรอบไม่พร้อม: จะใช้การวางภาพแบบปกติ');
+    }
   });
   </script>
 </body>
