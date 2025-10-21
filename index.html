@@ -22,9 +22,47 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-  <!-- Leaflet.DistortableImage (ลาก/ยืด/หมุน/บิดภาพ) — ใช้แพ็กเกจจริงที่มีขีด -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-distortableimage@0.12.1/dist/leaflet.distortableimage.css"/>
-  <script src="https://unpkg.com/leaflet-distortableimage@0.12.1/dist/leaflet.distortableimage.js"></script>
+  <!-- Leaflet.DistortableImage (โหลดแบบมี fallback อัตโนมัติ + log สถานะ) -->
+  <link id="ldi-css" rel="stylesheet" href="https://unpkg.com/leaflet-distortableimage@0.12.1/dist/leaflet.distortableimage.css" onerror="
+    console.warn('LDI CSS from unpkg failed, trying jsDelivr...');
+    this.href='https://cdn.jsdelivr.net/npm/leaflet-distortableimage@0.12.1/dist/leaflet.distortableimage.css';
+  ">
+  <script>
+  (function() {
+    function afterLoad() {
+      setTimeout(function(){
+        var ok = (typeof L !== 'undefined') && (typeof L.distortableImageOverlay === 'function');
+        console.log('LDI loaded =', ok ? 'OK' : 'NOT OK', 'typeof L.distortableImageOverlay =', typeof L.distortableImageOverlay);
+        if (!ok) {
+          console.error('DistortableImage ยังไม่พร้อม — จะ fallback เป็น ImageOverlay ธรรมดา');
+        }
+      }, 0);
+    }
+    function loadFrom(url, onFail) {
+      var s = document.createElement('script');
+      s.src = url;
+      s.async = false;
+      s.crossOrigin = 'anonymous';
+      s.onload = afterLoad;
+      s.onerror = function() {
+        console.warn('LDI JS failed from', url);
+        if (onFail) onFail();
+      };
+      document.head.appendChild(s);
+    }
+    loadFrom(
+      'https://unpkg.com/leaflet-distortableimage@0.12.1/dist/leaflet.distortableimage.js',
+      function fallback() {
+        console.warn('Switching to jsDelivr for LDI...');
+        var css = document.getElementById('ldi-css');
+        if (css && /unpkg\.com/.test(css.href)) {
+          css.href = 'https://cdn.jsdelivr.net/npm/leaflet-distortableimage@0.12.1/dist/leaflet.distortableimage.css';
+        }
+        loadFrom('https://cdn.jsdelivr.net/npm/leaflet-distortableimage@0.12.1/dist/leaflet.distortableimage.js');
+      }
+    );
+  })();
+  </script>
 
   <style>
     :root{--bg:#0b1020;--card:#10182b;--muted:#a9b0c0;--accent:#1e90ff;--danger:#e35b5b;--sel:#ff3b30}
@@ -87,8 +125,7 @@
 
     details.collapser{border:1px solid #243056;border-radius:10px;background:#0e1526;padding:8px 10px;margin:8px 0}
     details.collapser>summary{cursor:pointer;list-style:none;font-weight:300;color:#cfe0ff;display:flex;align-items:center;gap:8px;user-select:none; font-size:13px}
-    details.collapser>summary::before{content:"▾";display:inline-block;transform:rotate(0);transition:transform .15s;opacity:.8}
-    details.collapser[open]>summary::before{transform:rotate(180deg)}
+    details.collapser[open]>summary::before{content:"▾";display:inline-block;transform:rotate(0);transition:transform .15s;opacity:.8}
     .collapser-body{margin-top:8px}
 
     .modal-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:99999;padding:16px}
@@ -933,7 +970,7 @@
       } 
     })();
 
-    // แจ้งเตือนถ้าปลั๊กอิน DistortableImage ไม่พร้อม
+    // แจ้งเตือนถ้าปลั๊กอิน DistortableImage ยังไม่พร้อม (เช็คอีกชั้นตอน DOM พร้อม)
     if (typeof L.distortableImageOverlay !== 'function') {
       console.warn('Leaflet.DistortableImage plugin not detected. Using fallback mode.');
       toast('โหมดแก้กรอบไม่พร้อม: จะใช้การวางภาพแบบปกติ');
