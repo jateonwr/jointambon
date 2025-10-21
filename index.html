@@ -22,9 +22,9 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-  <!-- Leaflet.DistortableImage (ลาก/ยืด/หมุน/บิดภาพ) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.distortableimage@0.12.1/dist/leaflet.distortableimage.css"/>
-  <script src="https://unpkg.com/leaflet.distortableimage@0.12.1/dist/leaflet.distortableimage.js"></script>
+  <!-- Leaflet.DistortableImage (ลาก/ยืด/หมุน/บิดภาพ) — ใช้แพ็กเกจจริงที่มีขีด -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-distortableimage@0.12.1/dist/leaflet.distortableimage.css"/>
+  <script src="https://unpkg.com/leaflet-distortableimage@0.12.1/dist/leaflet.distortableimage.js"></script>
 
   <style>
     :root{--bg:#0b1020;--card:#10182b;--muted:#a9b0c0;--accent:#1e90ff;--danger:#e35b5b;--sel:#ff3b30}
@@ -311,11 +311,6 @@
     let subdistrictPolys=null, subdBBoxes=[];
     let thBorderPolys=null, thBBoxes=[];
     let addMode=false, tempAddMarker=null, selectedId=null;
-
-    // ===== helpers for image pane pointer events =====
-    function setImagePaneInteractive(on){
-      imagePane.style.pointerEvents = on ? 'auto' : 'none';
-    }
 
     // ===== Table / Markers =====
     function renderTable(){
@@ -642,7 +637,6 @@
       $('neLon').value = b.getNorthEast().lng.toFixed(6);
     }
 
-    // ======= UPDATED: ต่อแถว overlay มีปุ่ม ✎/🔒/✕ =======
     function createOverlayItemRow(entry){
       const row = document.createElement('div');
       row.className = 'overlay-item';
@@ -658,13 +652,11 @@
         </div>`;
       $('overlayList').appendChild(row);
 
-      // แสดง/ซ่อน
       row.querySelector(`[data-vis="${entry.id}"]`).addEventListener('change', (e)=>{
         entry.visible = e.target.checked;
         if(entry.visible){ map.addLayer(entry.layer); }
         else { map.removeLayer(entry.layer); }
       });
-      // โปร่งใส
       row.querySelector(`[data-op="${entry.id}"]`).addEventListener('input', (e)=>{
         const v = Math.max(0, Math.min(100, parseInt(e.target.value||'60',10)))/100;
         entry.opacity = v; entry.layer.setOpacity(v);
@@ -673,16 +665,13 @@
           $('imageOpacityLabel').textContent = Math.round(v*100) + '%';
         }
       });
-      // ✎ แก้กรอบเฉพาะรายการ
       row.querySelector(`[data-edit-img="${entry.id}"]`).addEventListener('click', ()=>{
         if(!isDistortable(entry.layer)){ toast('เลเยอร์นี้เป็น ImageOverlay ปกติ แก้กรอบไม่ได้'); return; }
         enterEditMode(entry);
       });
-      // 🔒 ล็อคกรอบเฉพาะรายการ
       row.querySelector(`[data-lock-img="${entry.id}"]`).addEventListener('click', ()=>{
         lockEditMode(entry);
       });
-      // ลบ
       row.querySelector(`[data-del-img="${entry.id}"]`).addEventListener('click',()=>{
         map.removeLayer(entry.layer);
         overlayCtl.removeLayer(entry.layer);
@@ -744,7 +733,6 @@
       const layer = entry.layer;
       if(!isDistortable(layer)){ toast('เลเยอร์นี้เป็น ImageOverlay ปกติ แก้กรอบไม่ได้'); return; }
 
-      // ดัน pane ของรูปให้อยู่บน markers + เปิดรับเมาส์
       const ip = layer._map.getPane('imagePane');
       ip.style.zIndex = 750; // สูงกว่า pointsPane (650)
       ip.style.pointerEvents = 'auto';
@@ -796,7 +784,6 @@
         try{
           layer = L.distortableImageOverlay(imageState.pendingUrl, {
             opacity: op,
-            // ไม่ใส่ actions: [] เพื่อเลี่ยงเคสที่ handle/toolbar ไม่ขึ้น
             corners: [nw, ne, se, sw],
             pane: 'imagePane',
             interactive: true
@@ -826,10 +813,8 @@
       createOverlayItemRow(entry);
       enableGlobalImageControls(entry);
 
-      // เลื่อนกล้องให้เห็นภาพแน่นอน
       map.fitBounds(bounds, {animate:true, padding:[20,20]});
 
-      // เข้าโหมดแก้กรอบให้อัตโนมัติถ้าใช้ DistortableImage ได้
       if (isDistortable(entry.layer)) enterEditMode(entry);
     }
 
