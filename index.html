@@ -106,7 +106,7 @@
     .overlay-item .row{display:flex;align-items:center;gap:8px}
     input[type="range"]{width:120px}
 
-    /* (5) บังคับให้กรอบรับเมาส์เต็มที่ */
+    /* ให้กรอบรับเมาส์เต็มที่ */
     .leaflet-pane.drawPane,
     .leaflet-overlay-pane svg path { pointer-events:auto !important; }
 
@@ -290,7 +290,7 @@
     map.createPane('pointsPane').style.zIndex = 650;
 
     const drawPane = map.createPane('drawPane');
-    drawPane.style.zIndex = 700;             // (4) drawPane สูงกว่า imagePane
+    drawPane.style.zIndex = 700;             // drawPane สูงกว่า imagePane
     drawPane.style.pointerEvents = 'auto';
 
     const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
@@ -305,7 +305,7 @@
     const pointsLayer = L.layerGroup().addTo(map);
 
     // groups
-    const editFeatureGroup = L.featureGroup(null, {pane:'drawPane'}).addTo(map); // สำหรับ rectangles ที่แก้ไข
+    const editFeatureGroup = L.featureGroup(null, {pane:'drawPane'}).addTo(map); // rectangles ที่แก้ไข
     const drawGroup = L.featureGroup(null, {pane:'drawPane'}).addTo(map);
 
     const overlayCtl = L.control.layers(null, {'จุด':pointsLayer,'ตำบล':selectedPolysLayer,'ประเทศไทย':thBorderLayer}, {collapsed:false, position:'topright'}).addTo(map);
@@ -315,7 +315,7 @@
     let thBorderPolys=null, thBBoxes=[];
     let addMode=false, tempAddMarker=null, selectedId=null;
 
-    // ====== helpers: freeze map while editing (2) ======
+    // ====== freeze map while editing ======
     let editOn = false;
     function freezeMapInteractions(on){
       if(on){
@@ -356,7 +356,7 @@
       editOn = false;
     }
 
-    // ===== Table / Markers (คงเดิม) =====
+    // ===== Table / Markers (เหมือนเดิม) =====
     function renderTable(){
       const tb=$('pointsTableBody'); const editor=tb.querySelector('.row-editor');
       tb.innerHTML=''; tb.appendChild(editor);
@@ -664,7 +664,7 @@
     };
     let overlaySeq = 1;
 
-    // validateBounds (1)
+    // validateBounds
     function validateBounds(swLat, swLon, neLat, neLon){
       let sLat = swLat, sLon = swLon, nLat = neLat, nLon = neLon;
       if (!isFinite(sLat) || !isFinite(sLon) || !isFinite(nLat) || !isFinite(nLon)) return null;
@@ -679,6 +679,23 @@
       $('swLon').value = b.getSouthWest().lng.toFixed(6);
       $('neLat').value = b.getNorthEast().lat.toFixed(6);
       $('neLon').value = b.getNorthEast().lng.toFixed(6);
+    }
+
+    // ======== ปุ่มวาง: เปิดเมื่อไฟล์พร้อม + (อินพุตครบ หรือ มีกรอบที่วาด) ========
+    function inputsAreValid(){
+      const a=toNumberMaybe($('swLat').value), b=toNumberMaybe($('swLon').value),
+            c=toNumberMaybe($('neLat').value), d=toNumberMaybe($('neLon').value);
+      return isFinite(a) && isFinite(b) && isFinite(c) && isFinite(d);
+    }
+    function hasDrawnRect(){
+      if (typeof drawnRectLayer !== 'undefined' && drawnRectLayer) return true;
+      let ok=false; editFeatureGroup.eachLayer(()=>{ ok=true; });
+      return ok;
+    }
+    function updatePlaceBtn(){
+      const hasFile = !!imageState.pendingUrl;
+      $('placeImageBtn').disabled = !(hasFile && (inputsAreValid() || hasDrawnRect()));
+      $('useMapBoundsBtn').disabled = !hasFile;
     }
 
     function createOverlayItemRow(entry){
@@ -748,29 +765,55 @@
       }
     }
 
+    // ======= วางภาพ: รองรับอินพุต/ขอบเขต/กรอบที่วาด =======
     function placePendingImage(){
       if(!imageState.pendingUrl){ toast('ยังไม่ได้เลือกไฟล์ภาพ'); return; }
 
       const swLat=toNumberMaybe($('swLat').value), swLon=toNumberMaybe($('swLon').value),
             neLat=toNumberMaybe($('neLat').value), neLon=toNumberMaybe($('neLon').value);
 
+      // 1) ลองจากอินพุตก่อน
+      let bounds = null;
       const fixed = validateBounds(swLat, swLon, neLat, neLon);
-      if(!fixed){ toast('พิกัดกรอบภาพไม่ถูกต้อง'); console.warn('Invalid bounds', {swLat, swLon, neLat, neLon}); return; }
-      const { sLat, sLon, nLat, nLon } = fixed;
+      if (fixed){
+        bounds = L.latLngBounds([fixed.sLat, fixed.sLon], [fixed.nLat, fixed.nLon]);
+      }
 
-      const bounds = L.latLngBounds([sLat, sLon], [nLat, nLon]);
+      // 2) ถ้าอินพุตยังไม่ครบ ให้ใช้กรอบที่วาดล่าสุด
+      if (!bounds){
+        let candidate = null;
+        if (typeof drawnRectLayer !== 'undefined' && drawnRectLayer) candidate = drawnRectLayer;
+        else {
+          const layers = [];
+          editFeatureGroup.eachLayer(l => layers.push(l));
+          if (layers.length) candidate = layers[layers.length - 1];
+        }
+        if (candidate && candidate.getBounds) {
+          bounds = candidate.getBounds();
+          // sync inputs
+          $('swLat').value = bounds.getSouthWest().lat.toFixed(6);
+          $('swLon').value = bounds.getSouthWest().lng.toFixed(6);
+          $('neLat').value = bounds.getNorthEast().lat.toFixed(6);
+          $('neLon').value = bounds.getNorthEast().lng.toFixed(6);
+        }
+      }
+
+      if (!bounds){
+        toast('ยังไม่มีกรอบพิกัด: กรุณากรอกพิกัดหรือวาดกรอบ');
+        return;
+      }
+
       const op = (parseInt($('imageOpacity').value,10)||60)/100;
 
-      // 1) รูป
+      // รูป
       const layer = L.imageOverlay(imageState.pendingUrl, bounds, {pane:'imagePane', opacity: op}).addTo(map);
 
-      // 2) กรอบสี่เหลี่ยม (1) + กันอีเวนต์ไหล (1)
+      // กรอบสี่เหลี่ยม + กันอีเวนต์ไหล
       const rect = L.rectangle(bounds, {
         pane:'drawPane', color:'#1e90ff', weight:2, fill:false,
         interactive:true, bubblingMouseEvents:false
       }).addTo(editFeatureGroup);
 
-      // กัน propagation ที่ระดับ DOM (1)
       rect.on('add', () => {
         if (rect._path) {
           L.DomEvent.on(rect._path, 'mousedown', L.DomEvent.stopPropagation);
@@ -795,7 +838,8 @@
       enableGlobalImageControls(entry);
 
       map.fitBounds(bounds, {animate:true, padding:[20,20]});
-      toast('วางภาพแล้ว: ใช้ “เข้าโหมดแก้กรอบ” เพื่อปรับสี่เหลี่ยมครอบรูป');
+      toast('วางภาพแล้ว: ใช้ “เข้าโหมดแก้กรอบ” เพื่อปรับได้');
+      updatePlaceBtn();
     }
 
     // Global controls (ภาพล่าสุด)
@@ -859,12 +903,39 @@
         $('swLon').value = b.getSouthWest().lng.toFixed(6);
         $('neLat').value = b.getNorthEast().lat.toFixed(6);
         $('neLon').value = b.getNorthEast().lng.toFixed(6);
-        $('placeImageBtn').disabled = !imageState.pendingUrl;
         toast('ได้กรอบพิกัดจากการวาดแล้ว');
+        updatePlaceBtn();
       };
       map.on(L.Draw.Event.CREATED, onCreated);
     }
     $('drawRectBtn').addEventListener('click', startDrawRectangle);
+
+    // ===== File select & helpers =====
+    $('imageFileInput').addEventListener('change', (ev)=>{
+      const file = ev.target.files && ev.target.files[0];
+      if(!file){
+        imageState.pendingUrl=null; imageState.pendingName=null;
+        $('imagePendingName').textContent='';
+        updatePlaceBtn();
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      imageState.pendingUrl = url; imageState.pendingName = file.name;
+      $('imagePendingName').textContent = 'ไฟล์ที่เลือก: '+file.name;
+      applyPendingToInputsFromMapBounds();
+      updatePlaceBtn();
+    });
+    $('useMapBoundsBtn').addEventListener('click', ()=>{
+      applyPendingToInputsFromMapBounds();
+      updatePlaceBtn();
+    });
+    $('placeImageBtn').addEventListener('click', placePendingImage);
+
+    // hook inputs
+    ['swLat','swLon','neLat','neLon'].forEach(id=>{
+      $(id).addEventListener('input', updatePlaceBtn);
+      $(id).addEventListener('change', updatePlaceBtn);
+    });
 
     // ===== Load boundaries =====
     async function loadSubdistricts(path=SUBD_PATH){
@@ -898,6 +969,9 @@
         toast('โหลดขอบเขตไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson / th_boundary.geojson'); 
       } 
     })();
+
+    // เริ่มต้นอัปเดตปุ่ม
+    updatePlaceBtn();
   });
   </script>
 </body>
