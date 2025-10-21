@@ -106,6 +106,11 @@
     @media (max-width:768px){.app{grid-template-columns:1fr;grid-template-areas:"right" "left"}#map{min-height:400px}.bar{flex-direction:column;align-items:stretch}.bar-right{justify-content:space-between}}
     @media (max-width:420px){#map{min-height:360px}input[type="number"].celled{width:85px}.btn{padding:8px 10px}.btn-icon{width:30px;height:30px}}
   </style>
+  
+  <!-- Leaflet.draw for rectangle drawing -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
 </head>
 <body>
   <div class="app">
@@ -179,8 +184,8 @@
         <div class="collapser-body">
           <div class="small">1) เลือกไฟล์ภาพ 2) กำหนดตำแหน่งด้วยพิกัดหรือใช้ขอบเขตแผนที่ปัจจุบัน 3) ปรับโปร่งใส/เปิดปิด</div>
           <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
-            <input id="imageFileInput" type="file" accept="image/png,image/jpeg" />
-            <button id="useMapBoundsBtn" class="btn btn-outline" disabled>ใช้ขอบเขตแผนที่ปัจจุบัน</button>
+            $1
+            <button id=\"drawRectBtn\" class=\"btn btn-outline\">วาดกรอบบนแผนที่</button>
           </div>
           <div id="imagePendingName" class="small" style="margin-top:6px;color:#b8c7ea"></div>
 
@@ -270,6 +275,10 @@
 
     map.createPane('pointsPane').style.zIndex = 650;
 
+    // pane for user-drawn rectangle (over image, under points)
+    const drawPane = map.createPane('drawPane');
+    drawPane.style.zIndex = 600;
+
     const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery © Esri'});
     const baseCtl = L.control.layers({'OSM':osmStd,'Satellite':satellite}, null, {collapsed:false, position:'topright'}).addTo(map);
@@ -280,6 +289,9 @@
     const thBorderLayer = L.geoJSON(null,{pane:'polysPane', style:{color:'#000',weight:2,fill:false}}).addTo(map);
     const selectedPolysLayer = L.geoJSON(null,{pane:'polysPane', style:{color:DEFAULT_POLY_COLOR,weight:DEFAULT_POLY_WEIGHT,fill:false}}).addTo(map);
     const pointsLayer = L.layerGroup().addTo(map);
+
+    // FeatureGroup to hold a single drawn rectangle
+    const drawGroup = L.featureGroup(null, {pane:'drawPane'}).addTo(map);
 
     // One overlay control for all overlays (existing + images)
     const overlayCtl = L.control.layers(null, {'จุด':pointsLayer,'ตำบล':selectedPolysLayer,'ประเทศไทย':thBorderLayer}, {collapsed:false, position:'topright'}).addTo(map);
@@ -685,6 +697,34 @@
       if(last.visible){ map.addLayer(last.layer); }
       else { map.removeLayer(last.layer); }
     });
+
+    // ===== Rectangle draw (bounds picker) =====
+    let drawnRectLayer = null;
+
+    function startDrawRectangle(){
+      if(!L || !L.Draw || !L.Draw.Rectangle){ toast('ไม่พบปลั๊กอิน Leaflet.draw'); return; }
+      if(drawnRectLayer){ drawGroup.removeLayer(drawnRectLayer); drawnRectLayer = null; }
+      const drawer = new L.Draw.Rectangle(map, {shapeOptions:{color:'#1e90ff', weight:2, fill:false, pane:'drawPane'}});
+      drawer.enable();
+      const onCreated = function(e){
+        if(e.layerType !== 'rectangle'){ return; }
+        map.off(L.Draw.Event.CREATED, onCreated);
+        drawnRectLayer = e.layer;
+        drawGroup.addLayer(drawnRectLayer);
+        const b = drawnRectLayer.getBounds();
+        $('swLat').value = b.getSouthWest().lat.toFixed(6);
+        $('swLon').value = b.getSouthWest().lng.toFixed(6);
+        $('neLat').value = b.getNorthEast().lat.toFixed(6);
+        $('neLon').value = b.getNorthEast().lng.toFixed(6);
+        $('placeImageBtn').disabled = !imageState.pendingUrl;
+        $('imageOpacity').disabled = !imageState.pendingUrl ? true : false;
+        $('imageVisibleChk').disabled = !imageState.pendingUrl ? true : false;
+        toast('ได้กรอบพิกัดจากการวาดแล้ว');
+      };
+      map.on(L.Draw.Event.CREATED, onCreated);
+    }
+
+    $('drawRectBtn').addEventListener('click', startDrawRectangle);
 
     // ===== Load boundaries =====
     async function loadSubdistricts(path=SUBD_PATH){
