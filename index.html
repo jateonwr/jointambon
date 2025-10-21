@@ -47,7 +47,7 @@
     .btn{background:linear-gradient(180deg,#1e90ff,#1475d6);border:none;color:#fff;padding:10px 12px;border-radius:10px;cursor:pointer}
     .btn:disabled{opacity:.5;cursor:not-allowed}
     .btn-outline{background:transparent;border:1px solid #2a3354;color:#d6e5ff}
-    .btn-danger{background:transparent;border:1px solid #703a3a;color:#ffbcbc}
+    .btn-danger{background:transparent;border:1px solid #703a3a;color:#ffbCBC}
     .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;border:1px solid #2a3354;background:#0e162b;color:#d6e5ff;font-size:18px;line-height:1}
     .btn-icon.danger{border-color:#5a2a2a;color:#ffcccc}
     .btn-danger-solid{background:linear-gradient(180deg,#e35b5b,#c84949);color:#fff;border:none;padding:8px 12px;border-radius:10px;cursor:pointer}
@@ -695,8 +695,24 @@
         $('imageOpacityLabel').textContent = '60%';
       }
     }
+
+    // ====== ฟังก์ชันแก้กรอบ (รองรับหลาย API ของปลั๊กอิน) ======
+    function isDistortable(layer){
+      return !!layer && (typeof layer.getCorners === 'function' || layer._imageCorners);
+    }
+    function enableDistortableEditing(layer){
+      if (layer.editing && typeof layer.editing.enable === 'function') { layer.editing.enable(); return true; }
+      if (typeof layer.enable === 'function') { layer.enable(); return true; }
+      if (typeof layer.select === 'function') { layer.select(); return true; }
+      return false;
+    }
+    function disableDistortableEditing(layer){
+      if (layer.editing && typeof layer.editing.disable === 'function') { layer.editing.disable(); return true; }
+      if (typeof layer.disable === 'function') { layer.disable(); return true; }
+      if (typeof layer.deselect === 'function') { layer.deselect(); return true; }
+      return false;
+    }
     function syncInputsFromCorners(layer){
-      // ใช้ bounding box จากมุม 4 จุด (NW, NE, SE, SW)
       if(!layer.getCorners) return;
       const cs = layer.getCorners();
       if(!cs || cs.length !== 4) return;
@@ -710,27 +726,41 @@
     }
     function enterEditMode(entry){
       if(!entry) return;
-      if(entry.layer && entry.layer.editing && !entry.layer.editing._enabled){
-        setImagePaneInteractive(true);
-        entry.layer.options.pane = 'imagePane';
-        entry.layer.bringToFront?.();
-        entry.layer.editing.enable();
-        toast('เข้าโหมดแก้กรอบ: ลากหูจับเพื่อปรับภาพ แล้วกด “ล็อคกรอบ”');
-        entry.layer.on('update', ()=>syncInputsFromCorners(entry.layer));
+      const layer = entry.layer;
+      if(!isDistortable(layer)){ toast('เลเยอร์นี้เป็น ImageOverlay ปกติ แก้กรอบไม่ได้'); return; }
+
+      // ดัน pane ของรูปให้อยู่บน markers + เปิดรับเมาส์
+      const ip = layer._map.getPane('imagePane');
+      ip.style.zIndex = 750; // สูงกว่า pointsPane (650)
+      ip.style.pointerEvents = 'auto';
+
+      const ok = enableDistortableEditing(layer);
+      if (ok){
+        toast('เข้าโหมดแก้กรอบ: ลากหูจับได้เลย แล้วกด “ล็อคกรอบ”');
+        const onUpd = ()=>{ try{ syncInputsFromCorners(layer); }catch{} };
+        layer.off('update', onUpd);
+        layer.on('update', onUpd);
+      } else {
+        toast('เปิดโหมดแก้กรอบไม่สำเร็จ (ปลั๊กอินไม่ตรงเวอร์ชัน?)');
+        console.warn('Could not enable editing on layer', layer);
       }
     }
     function lockEditMode(entry){
       if(!entry) return;
-      if(entry.layer && entry.layer.editing && entry.layer.editing._enabled){
-        entry.layer.off('update');
-        entry.layer.editing.disable();
-        setImagePaneInteractive(false);
-        syncInputsFromCorners(entry.layer);
-        toast('ล็อคกรอบแล้ว');
+      const layer = entry.layer;
+
+      const ip = layer._map.getPane('imagePane');
+      ip.style.pointerEvents = 'none';
+      ip.style.zIndex = 550;
+
+      if (isDistortable(layer)){
+        try{ layer.off('update'); }catch{}
+        disableDistortableEditing(layer);
+        try{ syncInputsFromCorners(layer); }catch{}
       }
+      toast('ล็อคกรอบแล้ว');
     }
 
-    // วางภาพ (มี fallback)
     function placePendingImage(){
       if(!imageState.pendingUrl){ toast('ยังไม่ได้เลือกไฟล์ภาพ'); return; }
 
@@ -751,8 +781,8 @@
         try{
           layer = L.distortableImageOverlay(imageState.pendingUrl, {
             opacity: op,
+            // ไม่ใส่ actions: [] เพื่อเลี่ยงเคสที่ handle/toolbar ไม่ขึ้น
             corners: [nw, ne, se, sw],
-            actions: [],
             pane: 'imagePane',
             interactive: true
           });
@@ -783,6 +813,9 @@
 
       // เลื่อนกล้องให้เห็นภาพแน่นอน
       map.fitBounds(bounds, {animate:true, padding:[20,20]});
+
+      // เข้าโหมดแก้กรอบให้อัตโนมัติถ้าใช้ DistortableImage ได้
+      if (isDistortable(entry.layer)) enterEditMode(entry);
     }
 
     // Global controls (ภาพล่าสุด)
@@ -809,13 +842,12 @@
     $('editFrameBtn').addEventListener('click', ()=>{
       const last = getLastOverlayEntry();
       if(!last){ toast('ยังไม่มีภาพบนแผนที่'); return; }
-      if(typeof last.layer.editing === 'undefined'){ toast('เลเยอร์นี้เป็น ImageOverlay ปกติ แก้กรอบไม่ได้'); return; }
+      if(!isDistortable(last.layer)){ toast('เลเยอร์นี้เป็น ImageOverlay ปกติ แก้กรอบไม่ได้'); return; }
       enterEditMode(last);
     });
     $('lockFrameBtn').addEventListener('click', ()=>{
       const last = getLastOverlayEntry();
       if(!last){ toast('ยังไม่มีภาพบนแผนที่'); return; }
-      if(typeof last.layer.editing === 'undefined'){ toast('เลเยอร์นี้เป็น ImageOverlay ปกติ แก้กรอบไม่ได้'); return; }
       lockEditMode(last);
     });
     $('resetFrameBtn').addEventListener('click', ()=>{
