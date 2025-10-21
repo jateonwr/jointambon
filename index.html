@@ -100,6 +100,9 @@
 
     .col-tambon,.col-amphoe,.col-changwat{min-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+    /* ซ่อน toolbar ของ Leaflet.draw (เราใช้ปุ่มในกล่องแทน) */
+    .leaflet-draw{display:none !important;}
+
     @media (max-width:1024px){.app{grid-template-columns:380px 1fr}#map{min-height:520px}}
     @media (max-width:768px){.app{grid-template-columns:1fr;grid-template-areas:"right" "left"}#map{min-height:400px}.bar{flex-direction:column;align-items:stretch}.bar-right{justify-content:space-between}}
     @media (max-width:420px){#map{min-height:360px}input[type="number"].celled{width:85px}.btn{padding:8px 10px}.btn-icon{width:30px;height:30px}}
@@ -124,26 +127,6 @@
           </button>
         </div>
       </div>
-
-      <!-- === Image Overlay (แนบรูปบนแผนที่) === -->
-      <details class="collapser" id="imgSection" open>
-        <summary>แนบรูปบนแผนที่ (Image Overlay)</summary>
-        <div class="collapser-body">
-          <div class="small">ขั้นตอน: เลือกรูป → ใช้ปุ่มวาดสี่เหลี่ยมบนแผนที่ → ใช้โหมด Edit เพื่อเลื่อน/ยืดกรอบ</div>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px">
-            <input id="imgInput" type="file" accept="image/*">
-            <button id="useRectBtn" class="btn btn-outline" title="วางรูปกับกรอบล่าสุด">วางรูปกับกรอบล่าสุด</button>
-            <button id="clearImgBtn" class="btn btn-danger" title="ลบรูปออก">ลบรูป</button>
-          </div>
-          <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
-            <label class="small" for="imgOpacity">โปร่งใส (%)</label>
-            <input id="imgOpacity" type="range" min="0" max="100" value="35" />
-            <span class="small" id="imgOpacityVal">35%</span>
-          </div>
-          <div class="note" style="margin-top:6px">* สามารถปิด/เปิดเลเยอร์รูปได้ที่ “Layers” มุมขวาบน</div>
-        </div>
-      </details>
-      <!-- === /Image Overlay === -->
 
       <div class="tableWrap">
         <table>
@@ -176,7 +159,8 @@
         <div><button class="btn btn-outline" id="clearPointsBtn">ล้างจุดทั้งหมด</button></div>
       </div>
 
-      <details class="collapser" id="uploadSection">
+      <!-- Upload จุดจาก Excel/CSV -->
+      <details class="collapser" id="uploadSection" open>
         <summary>Upload จุดจาก Excel/CSV</summary>
         <div class="collapser-body">
           <label class="small" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -188,6 +172,32 @@
           </label>
           <input style="margin-top:10px" id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
           <div id="excelPreview" class="small" style="margin-top:10px;color:#b8c7ea"></div>
+        </div>
+      </details>
+
+      <!-- แนบรูปบนแผนที่ (ย้ายมาอยู่ล่าง Upload) -->
+      <details class="collapser" id="imgSection">
+        <summary>แนบรูปบนแผนที่ (Image Overlay)</summary>
+        <div class="collapser-body">
+          <div class="small">ขั้นตอน: เลือกรูป → กด “วาดกรอบ” แล้วลากบนแผนที่ → กด “เข้าโหมดแก้กรอบ” เพื่อขยับ/ยืด (ภาพจะอัปเดตแบบเรียลไทม์)</div>
+
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px">
+            <input id="imgInput" type="file" accept="image/*" title="เลือกไฟล์รูป"/>
+            <button id="btnDrawRect" class="btn btn-outline" title="วาดกรอบใหม่">วาดกรอบ</button>
+            <button id="btnEnterEdit" class="btn btn-outline" title="เข้าโหมดแก้กรอบ">เข้าโหมดแก้กรอบ</button>
+            <button id="btnExitEdit" class="btn btn-outline" title="ออกจากโหมดแก้กรอบ" disabled>ออกโหมดแก้กรอบ</button>
+            <button id="btnDeleteRect" class="btn btn-danger" title="ลบกรอบ">ลบกรอบ</button>
+            <button id="useRectBtn" class="btn" title="วาง/อัปเดตรูปตามกรอบ">วางรูป</button>
+            <button id="clearImgBtn" class="btn btn-danger" title="ลบรูปจากแผนที่">ลบรูป</button>
+          </div>
+
+          <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+            <label class="small" for="imgOpacity">โปร่งใส (%)</label>
+            <input id="imgOpacity" type="range" min="0" max="100" value="35" />
+            <span class="small" id="imgOpacityVal">35%</span>
+          </div>
+
+          <div class="note" style="margin-top:6px">* ปิด/เปิดเลเยอร์รูปได้ที่ “Layers” มุมขวาบน (ชื่อเลเยอร์: แนบรูป (Image))</div>
         </div>
       </details>
 
@@ -263,19 +273,44 @@
     L.control.scale({imperial:false, metric:true}).addTo(map);
     setTimeout(()=>map.invalidateSize(true),300);
 
-    // ====== Leaflet.draw: rectangle only + edit/remove ======
+    // ====== Leaflet.draw infra (ไม่มี toolbar บนแผนที่ ใช้ปุ่มเอง) ======
     const drawnItems = new L.FeatureGroup().addTo(map);
-    const drawControl = new L.Control.Draw({
-      position:'topleft',
-      draw: {
-        polygon:false, polyline:false, marker:false, circle:false, circlemarker:false,
-        rectangle: { shapeOptions:{ color:'#ff9800', weight:2, fill:false }, repeatMode:false }
-      },
-      edit: { featureGroup: drawnItems, edit: true, remove: true }
-    });
-    map.addControl(drawControl);
-
+    const drawOptions = { shapeOptions:{ color:'#ff9800', weight:2, fill:false }, repeatMode:false };
+    let rectDrawer = null; // L.Draw.Rectangle
+    let editToolbar = null; // L.EditToolbar.Edit
+    let editEnabled = false;
     let currentRect = null;
+
+    function enableDrawRectangle(){
+      if(rectDrawer){ rectDrawer.disable(); }
+      rectDrawer = new L.Draw.Rectangle(map, drawOptions);
+      rectDrawer.enable();
+      toast('โหมดวาดกรอบ: ลากสี่เหลี่ยมบนแผนที่');
+    }
+    function enableEditMode(){
+      if(!currentRect){ toast('ยังไม่มีกรอบ'); return; }
+      if(editEnabled) return;
+      editToolbar = new L.EditToolbar.Edit(map, { featureGroup: drawnItems, selectedPathOptions:{ maintainColor:true } });
+      editToolbar.enable();
+      editEnabled = true;
+      $('btnEnterEdit').disabled = true;
+      $('btnExitEdit').disabled = false;
+      toast('เข้าโหมดแก้กรอบ');
+    }
+    function disableEditMode(){
+      if(editToolbar){ editToolbar.disable(); editToolbar=null; }
+      editEnabled = false;
+      $('btnEnterEdit').disabled = false;
+      $('btnExitEdit').disabled = true;
+      toast('ออกโหมดแก้กรอบ');
+    }
+    function deleteRectangle(){
+      if(currentRect){ drawnItems.removeLayer(currentRect); currentRect=null; }
+      if(editEnabled) disableEditMode();
+      // ถ้ามีรูปวางอยู่ ให้ลบด้วยเพื่อกันสับสน
+      if(imageOverlay){ imageOverlayLayer.removeLayer(imageOverlay); imageOverlay=null; }
+      toast('ลบกรอบแล้ว');
+    }
 
     // ====== Data for join ======
     let points=[], nextId=1;
@@ -600,16 +635,18 @@
     }
 
     $('uploadSection')?.addEventListener('toggle',()=>setTimeout(()=>map.invalidateSize(),120));
+    $('imgSection')?.addEventListener('toggle',()=>setTimeout(()=>map.invalidateSize(),120));
     window.addEventListener('resize',()=>setTimeout(()=>map.invalidateSize(),80));
 
     (async()=>{ try{ await loadSubdistricts(); await loadThailandBorder(); toast('โหลดขอบเขตสำเร็จ'); map.invalidateSize(); }catch(err){ console.error(err); toast('โหลดขอบเขตไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson / th_boundary.geojson'); } })();
 
-    // ====== Image Overlay logic (with Leaflet.draw rectangle) ======
+    // ====== Image Overlay logic (with our own buttons) ======
     let imageBlobUrl=null;
     let imageOverlay=null;
 
     function getOpacity01(){ const v=parseInt($('imgOpacity').value||'35',10); return Math.min(1,Math.max(0,v/100)); }
     function syncOpacityLabel(){ $('imgOpacityVal').textContent = `${$('imgOpacity').value}%`; }
+    syncOpacityLabel();
 
     function getCurrentRectangle(){
       let rect=null;
@@ -633,26 +670,28 @@
       }
     }
 
-    // file input -> create object URL
+    // file input -> object URL
     $('imgInput').addEventListener('change', (ev)=>{
       const f=ev.target.files && ev.target.files[0]; if(!f) return;
       if(imageBlobUrl) URL.revokeObjectURL(imageBlobUrl);
       imageBlobUrl = URL.createObjectURL(f);
+      // หากมีกกรอบอยู่แล้ว วางทันที
       placeOrUpdateOverlay();
       toast('โหลดรูปแล้ว — วาด/แก้กรอบเพื่อจัดตำแหน่ง');
     });
 
-    // manual place using last rectangle
+    // control buttons (inside the Image Overlay box)
+    $('btnDrawRect').addEventListener('click', enableDrawRectangle);
+    $('btnEnterEdit').addEventListener('click', enableEditMode);
+    $('btnExitEdit').addEventListener('click', disableEditMode);
+    $('btnDeleteRect').addEventListener('click', deleteRectangle);
     $('useRectBtn').addEventListener('click', placeOrUpdateOverlay);
 
-    // opacity slider
     $('imgOpacity').addEventListener('input', ()=>{
       syncOpacityLabel();
       if(imageOverlay) imageOverlay.setOpacity(getOpacity01());
     });
-    syncOpacityLabel();
 
-    // Clear image
     $('clearImgBtn').addEventListener('click', ()=>{
       if(imageOverlay){ imageOverlayLayer.removeLayer(imageOverlay); imageOverlay=null; }
       if(imageBlobUrl){ URL.revokeObjectURL(imageBlobUrl); imageBlobUrl=null; }
@@ -665,15 +704,22 @@
         if (currentRect) drawnItems.removeLayer(currentRect);
         currentRect = e.layer;
         drawnItems.addLayer(currentRect);
+        // ออกโหมดวาดทันที
+        if(rectDrawer) rectDrawer.disable();
         placeOrUpdateOverlay();
       }
     });
-    map.on('draw:edited', function(){
-      // when user moves/resizes in Edit mode
+
+    // === Live update ระหว่างแก้กรอบ (real-time) ===
+    function onRectLiveEdit(){
+      if(!currentRect){ currentRect = getCurrentRectangle(); }
       placeOrUpdateOverlay();
-    });
+    }
+    map.on('draw:editmove', onRectLiveEdit);
+    map.on('draw:editresize', onRectLiveEdit);
+    map.on('draw:editvertex', onRectLiveEdit);
+
     map.on('draw:deleted', function(e){
-      // if rectangle deleted, also remove image
       let rectDeleted=false;
       e.layers.eachLayer(l=>{ if(currentRect && l._leaflet_id===currentRect._leaflet_id) rectDeleted=true; });
       if(rectDeleted){ currentRect=null; }
@@ -681,6 +727,7 @@
         imageOverlayLayer.removeLayer(imageOverlay);
         imageOverlay=null;
       }
+      if(editEnabled) disableEditMode();
     });
   });
   </script>
