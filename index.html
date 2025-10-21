@@ -82,7 +82,7 @@
     .row-editor td{position:sticky;top:32px;background:#0f1933;border-bottom:1px solid #233056}
 
     details.collapser{border:1px solid #243056;border-radius:10px;background:#0e1526;padding:8px 10px;margin:8px 0}
-    details.collapser>summary{cursor:pointer;list-style:none;font-weight:300;color:#cfe0ff;display:flex;align-items:center;gap:8px;user-select:none; font-size:13px}
+    details.collapser>summary{cursor:pointer;list-style:none;font-weight:300;color:#cfe0ff;display:flex;align-items:center;gap:8px;user-select:none;font-size:13px}
     details.collapser>summary::before{content:"▾";display:inline-block;transform:rotate(0);transition:transform .15s;opacity:.8}
     details.collapser[open]>summary::before{transform:rotate(180deg)}
     .collapser-body{margin-top:8px}
@@ -175,20 +175,27 @@
         </div>
       </details>
 
-      <!-- แนบรูปบนแผนที่ (ย้ายมาอยู่ล่าง Upload) -->
+      <!-- แนบรูปบนแผนที่ -->
       <details class="collapser" id="imgSection">
         <summary>แนบรูปบนแผนที่ (Image Overlay)</summary>
         <div class="collapser-body">
-          <div class="small">ขั้นตอน: เลือกรูป → กด “วาดกรอบ” แล้วลากบนแผนที่ → กด “เข้าโหมดแก้กรอบ” เพื่อขยับ/ยืด (ภาพจะอัปเดตแบบเรียลไทม์)</div>
+          <div class="small">ขั้นตอน: เลือกรูป → <b>วาดกรอบ</b> แล้วลากบนแผนที่ → กด <b>แก้กรอบ</b> (Toggle) เพื่อขยับ/ยืด — รูปปรับตามแบบเรียลไทม์ และยืด-หดได้อิสระ (ไม่ล็อกสัดส่วน)</div>
 
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px">
+          <!-- แถว 1: วาดกรอบ, ลบกรอบ, วางรูป, ลบรูป -->
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <input id="imgInput" type="file" accept="image/*" title="เลือกไฟล์รูป"/>
             <button id="btnDrawRect" class="btn btn-outline" title="วาดกรอบใหม่">วาดกรอบ</button>
-            <button id="btnEnterEdit" class="btn btn-outline" title="เข้าโหมดแก้กรอบ">เข้าโหมดแก้กรอบ</button>
-            <button id="btnExitEdit" class="btn btn-outline" title="ออกจากโหมดแก้กรอบ" disabled>ออกโหมดแก้กรอบ</button>
             <button id="btnDeleteRect" class="btn btn-danger" title="ลบกรอบ">ลบกรอบ</button>
             <button id="useRectBtn" class="btn" title="วาง/อัปเดตรูปตามกรอบ">วางรูป</button>
             <button id="clearImgBtn" class="btn btn-danger" title="ลบรูปจากแผนที่">ลบรูป</button>
+          </div>
+
+          <!-- แถว 2: Toggle เข้า/ออกโหมดแก้กรอบ -->
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <button id="btnEditToggle" class="toggle" aria-pressed="false" title="เข้า/ออกโหมดแก้กรอบ">
+              <span class="track"><span class="knob"></span></span>
+              <span class="label" id="btnEditToggleLabel">เข้าโหมดแก้กรอบ</span>
+            </button>
           </div>
 
           <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
@@ -273,7 +280,7 @@
     L.control.scale({imperial:false, metric:true}).addTo(map);
     setTimeout(()=>map.invalidateSize(true),300);
 
-    // ====== Leaflet.draw infra (ไม่มี toolbar บนแผนที่ ใช้ปุ่มเอง) ======
+    // ====== Leaflet.draw infra (custom buttons) ======
     const drawnItems = new L.FeatureGroup().addTo(map);
     const drawOptions = { shapeOptions:{ color:'#ff9800', weight:2, fill:false }, repeatMode:false };
     let rectDrawer = null; // L.Draw.Rectangle
@@ -293,21 +300,23 @@
       editToolbar = new L.EditToolbar.Edit(map, { featureGroup: drawnItems, selectedPathOptions:{ maintainColor:true } });
       editToolbar.enable();
       editEnabled = true;
-      $('btnEnterEdit').disabled = true;
-      $('btnExitEdit').disabled = false;
+      $('btnEditToggle').setAttribute('aria-pressed','true');
+      $('btnEditToggleLabel').textContent = 'ออกโหมดแก้กรอบ';
       toast('เข้าโหมดแก้กรอบ');
     }
     function disableEditMode(){
       if(editToolbar){ editToolbar.disable(); editToolbar=null; }
       editEnabled = false;
-      $('btnEnterEdit').disabled = false;
-      $('btnExitEdit').disabled = true;
+      $('btnEditToggle').setAttribute('aria-pressed','false');
+      $('btnEditToggleLabel').textContent = 'เข้าโหมดแก้กรอบ';
       toast('ออกโหมดแก้กรอบ');
+    }
+    function toggleEditMode(){
+      editEnabled ? disableEditMode() : enableEditMode();
     }
     function deleteRectangle(){
       if(currentRect){ drawnItems.removeLayer(currentRect); currentRect=null; }
       if(editEnabled) disableEditMode();
-      // ถ้ามีรูปวางอยู่ ให้ลบด้วยเพื่อกันสับสน
       if(imageOverlay){ imageOverlayLayer.removeLayer(imageOverlay); imageOverlay=null; }
       toast('ลบกรอบแล้ว');
     }
@@ -640,7 +649,7 @@
 
     (async()=>{ try{ await loadSubdistricts(); await loadThailandBorder(); toast('โหลดขอบเขตสำเร็จ'); map.invalidateSize(); }catch(err){ console.error(err); toast('โหลดขอบเขตไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson / th_boundary.geojson'); } })();
 
-    // ====== Image Overlay logic (with our own buttons) ======
+    // ====== Image Overlay logic (custom buttons) ======
     let imageBlobUrl=null;
     let imageOverlay=null;
 
@@ -675,27 +684,27 @@
       const f=ev.target.files && ev.target.files[0]; if(!f) return;
       if(imageBlobUrl) URL.revokeObjectURL(imageBlobUrl);
       imageBlobUrl = URL.createObjectURL(f);
-      // หากมีกกรอบอยู่แล้ว วางทันที
       placeOrUpdateOverlay();
       toast('โหลดรูปแล้ว — วาด/แก้กรอบเพื่อจัดตำแหน่ง');
     });
 
-    // control buttons (inside the Image Overlay box)
+    // control buttons
     $('btnDrawRect').addEventListener('click', enableDrawRectangle);
-    $('btnEnterEdit').addEventListener('click', enableEditMode);
-    $('btnExitEdit').addEventListener('click', disableEditMode);
     $('btnDeleteRect').addEventListener('click', deleteRectangle);
     $('useRectBtn').addEventListener('click', placeOrUpdateOverlay);
-
-    $('imgOpacity').addEventListener('input', ()=>{
-      syncOpacityLabel();
-      if(imageOverlay) imageOverlay.setOpacity(getOpacity01());
-    });
-
     $('clearImgBtn').addEventListener('click', ()=>{
       if(imageOverlay){ imageOverlayLayer.removeLayer(imageOverlay); imageOverlay=null; }
       if(imageBlobUrl){ URL.revokeObjectURL(imageBlobUrl); imageBlobUrl=null; }
       toast('ลบรูปออกจากแผนที่แล้ว');
+    });
+
+    // Toggle edit mode
+    $('btnEditToggle').addEventListener('click', toggleEditMode);
+
+    // opacity slider
+    $('imgOpacity').addEventListener('input', ()=>{
+      syncOpacityLabel();
+      if(imageOverlay) imageOverlay.setOpacity(getOpacity01());
     });
 
     // Draw events
@@ -704,13 +713,12 @@
         if (currentRect) drawnItems.removeLayer(currentRect);
         currentRect = e.layer;
         drawnItems.addLayer(currentRect);
-        // ออกโหมดวาดทันที
         if(rectDrawer) rectDrawer.disable();
         placeOrUpdateOverlay();
       }
     });
 
-    // === Live update ระหว่างแก้กรอบ (real-time) ===
+    // Live update ระหว่างแก้กรอบ (real-time)
     function onRectLiveEdit(){
       if(!currentRect){ currentRect = getCurrentRectangle(); }
       placeOrUpdateOverlay();
