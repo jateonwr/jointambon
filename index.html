@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Join Atrributes Tool - ONWR</title>
+  <title>Join Atrributes Tool - ONWR (Image Overlay)</title>
 
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@200;300;400&display=swap" rel="stylesheet">
@@ -96,6 +96,12 @@
 
     .col-tambon,.col-amphoe,.col-changwat{min-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+    /* Image overlay panel */
+    .overlay-item{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:6px 8px;border:1px solid #1f2942;border-radius:8px;margin:6px 0;background:#0d1428}
+    .overlay-item .name{font-size:13px;color:#dbe6ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
+    .overlay-item .row{display:flex;align-items:center;gap:8px}
+    input[type="range"]{width:120px}
+
     @media (max-width:1024px){.app{grid-template-columns:380px 1fr}#map{min-height:520px}}
     @media (max-width:768px){.app{grid-template-columns:1fr;grid-template-areas:"right" "left"}#map{min-height:400px}.bar{flex-direction:column;align-items:stretch}.bar-right{justify-content:space-between}}
     @media (max-width:420px){#map{min-height:360px}input[type="number"].celled{width:85px}.btn{padding:8px 10px}.btn-icon{width:30px;height:30px}}
@@ -137,7 +143,7 @@
           </thead>
           <tbody id="pointsTableBody">
             <tr class="row-editor">
-              <td class="t-act"><button class="btn-icon" id="addNewRowBtn" title="เพิ่มแถว">+</button></td>
+              <td class="t-act"><button class="btn-icon" id="addNewRowBtn" title="เพิ่มแถว">+</nbutton></td>
               <td class="t-num"><span class="pill">#</span></td>
               <td class="col-lat"><input id="newLat" class="celled" type="number" step="any" placeholder="13.7563"></td>
               <td class="col-lon"><input id="newLon" class="celled" type="number" step="any" placeholder="100.5018"></td>
@@ -164,6 +170,48 @@
           </label>
           <input style="margin-top:10px" id="excelInput" type="file" accept=".xlsx,.xls,.csv" />
           <div id="excelPreview" class="small" style="margin-top:10px;color:#b8c7ea"></div>
+        </div>
+      </details>
+
+      <!-- Image Overlay Section -->
+      <details class="collapser" id="imageOverlaySection" open>
+        <summary>Overlay รูปภาพ (PNG/JPG) บนแผนที่</summary>
+        <div class="collapser-body">
+          <div class="small">1) เลือกไฟล์ภาพ 2) กำหนดตำแหน่งด้วยพิกัดหรือใช้ขอบเขตแผนที่ปัจจุบัน 3) ปรับโปร่งใส/เปิดปิด</div>
+          <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+            <input id="imageFileInput" type="file" accept="image/png,image/jpeg" />
+            <button id="useMapBoundsBtn" class="btn btn-outline" disabled>ใช้ขอบเขตแผนที่ปัจจุบัน</button>
+          </div>
+          <div id="imagePendingName" class="small" style="margin-top:6px;color:#b8c7ea"></div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+            <div>
+              <label class="small">SW Lat</label>
+              <input id="swLat" type="number" step="any" class="celled" placeholder="11.0">
+            </div>
+            <div>
+              <label class="small">SW Lon</label>
+              <input id="swLon" type="number" step="any" class="celled" placeholder="100.0">
+            </div>
+            <div>
+              <label class="small">NE Lat</label>
+              <input id="neLat" type="number" step="any" class="celled" placeholder="15.0">
+            </div>
+            <div>
+              <label class="small">NE Lon</label>
+              <input id="neLon" type="number" step="any" class="celled" placeholder="104.0">
+            </div>
+          </div>
+          <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+            <button id="placeImageBtn" class="btn" disabled>วางบนแผนที่</button>
+            <label class="small" style="display:flex;align-items:center;gap:8px">
+              โปร่งใส <input id="imageOpacity" type="range" min="0" max="100" value="60" disabled>
+              <span id="imageOpacityLabel">60%</span>
+            </label>
+            <label class="small" style="display:flex;align-items:center;gap:6px"><input id="imageVisibleChk" type="checkbox" checked disabled> แสดงภาพ</label>
+          </div>
+
+          <div id="overlayList" style="margin-top:12px"></div>
         </div>
       </details>
 
@@ -213,16 +261,18 @@
     const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
     map.fitBounds(thBounds);
 
-    // panes: polygon under, points over
+    // panes: polygons under, image overlays in middle, points over
     const polysPane = map.createPane('polysPane');
-    polysPane.style.zIndex = 400;
-    polysPane.style.pointerEvents = 'none';
+    polysPane.style.zIndex = 400; polysPane.style.pointerEvents = 'none';
+
+    const imagePane = map.createPane('imagePane');
+    imagePane.style.zIndex = 550; imagePane.style.pointerEvents = 'none'; // so clicks go through to markers
 
     map.createPane('pointsPane').style.zIndex = 650;
 
     const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery © Esri'});
-    L.control.layers({'OSM':osmStd,'Satellite':satellite}, null, {collapsed:false, position:'topright'}).addTo(map);
+    const baseCtl = L.control.layers({'OSM':osmStd,'Satellite':satellite}, null, {collapsed:false, position:'topright'}).addTo(map);
 
     L.control.scale({imperial:false, metric:true}).addTo(map);
     setTimeout(()=>map.invalidateSize(true),300);
@@ -230,13 +280,16 @@
     const thBorderLayer = L.geoJSON(null,{pane:'polysPane', style:{color:'#000',weight:2,fill:false}}).addTo(map);
     const selectedPolysLayer = L.geoJSON(null,{pane:'polysPane', style:{color:DEFAULT_POLY_COLOR,weight:DEFAULT_POLY_WEIGHT,fill:false}}).addTo(map);
     const pointsLayer = L.layerGroup().addTo(map);
-    L.control.layers(null, {'จุด':pointsLayer,'ตำบล':selectedPolysLayer,'ประเทศไทย':thBorderLayer}, {collapsed:false, position:'topright'}).addTo(map);
+
+    // One overlay control for all overlays (existing + images)
+    const overlayCtl = L.control.layers(null, {'จุด':pointsLayer,'ตำบล':selectedPolysLayer,'ประเทศไทย':thBorderLayer}, {collapsed:false, position:'topright'}).addTo(map);
 
     let points=[], nextId=1;
     let subdistrictPolys=null, subdBBoxes=[];
     let thBorderPolys=null, thBBoxes=[];
     let addMode=false, tempAddMarker=null, selectedId=null;
 
+    // ===== Table / Markers =====
     function renderTable(){
       const tb=$('pointsTableBody'); const editor=tb.querySelector('.row-editor');
       tb.innerHTML=''; tb.appendChild(editor);
@@ -270,7 +323,6 @@
       });
     }
 
-    // table row -> select & open popup
     $('pointsTableBody').addEventListener('click',(ev)=>{
       if(ev.target.closest('button, input')) return;
       const row=ev.target.closest('tr[data-id]'); if(!row) return;
@@ -487,7 +539,7 @@
       }catch(err){ console.error(err); toast('อ่านไฟล์ล้มเหลว: ' + (err?.message||err)); }
     });
 
-    // === เปลี่ยนหัวคอลัมน์ export เป็นไทย ===
+    // === Export helpers ===
     function exportCollectRows(){
       const rows=[['ลำดับ','lat','lon','ตำบล','อำเภอ','จังหวัด','ID']];
       [...document.querySelectorAll('#pointsTableBody tr:not(.row-editor)')].forEach(tr=>{
@@ -537,6 +589,104 @@
       download('points_joined.geojson', JSON.stringify({type:'FeatureCollection',features:feats}), 'application/geo+json');
     });
 
+    // ===== Image Overlay logic =====
+    const imageState = {
+      pendingUrl: null,
+      pendingName: null,
+      overlays: [] // {id, name, layer, visible, opacity}
+    };
+    let overlaySeq = 1;
+
+    function validateBounds(swLat, swLon, neLat, neLon){
+      return isFinite(swLat) && isFinite(swLon) && isFinite(neLat) && isFinite(neLon) && swLat < neLat && swLon < neLon;
+    }
+
+    function applyPendingToInputsFromMapBounds(){
+      const b = map.getBounds();
+      $('swLat').value = b.getSouthWest().lat.toFixed(6);
+      $('swLon').value = b.getSouthWest().lng.toFixed(6);
+      $('neLat').value = b.getNorthEast().lat.toFixed(6);
+      $('neLon').value = b.getNorthEast().lng.toFixed(6);
+    }
+
+    function createOverlayItemRow(entry){
+      const row = document.createElement('div');
+      row.className = 'overlay-item';
+      row.dataset.id = entry.id;
+      row.innerHTML = `
+        <div class="name" title="${entry.name}">ภาพ: ${entry.name}</div>
+        <div class="row">
+          <label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vis="${entry.id}" ${entry.visible?'checked':''}> แสดง</label>
+          <label class="small" style="display:flex;align-items:center;gap:6px">โปร่งใส <input type="range" min="0" max="100" value="${Math.round(entry.opacity*100)}" data-op="${entry.id}"></label>
+          <button class="btn-icon danger" title="ลบ" data-del-img="${entry.id}">✕</button>
+        </div>`;
+      $('overlayList').appendChild(row);
+
+      row.querySelector(`[data-vis="${entry.id}"]`).addEventListener('change', (e)=>{
+        entry.visible = e.target.checked;
+        if(entry.visible){ map.addLayer(entry.layer); }
+        else { map.removeLayer(entry.layer); }
+      });
+      row.querySelector(`[data-op="${entry.id}"]`).addEventListener('input', (e)=>{
+        const v = Math.max(0, Math.min(100, parseInt(e.target.value||'60',10)))/100;
+        entry.opacity = v; entry.layer.setOpacity(v);
+      });
+      row.querySelector(`[data-del-img="${entry.id}"]`).addEventListener('click',()=>{
+        map.removeLayer(entry.layer);
+        overlayCtl.removeLayer(entry.layer);
+        row.remove();
+        imageState.overlays = imageState.overlays.filter(o=>o.id!==entry.id);
+        toast('ลบภาพแล้ว');
+      });
+    }
+
+    function placePendingImage(){
+      if(!imageState.pendingUrl){ toast('ยังไม่ได้เลือกไฟล์ภาพ'); return; }
+      const swLat=toNumberMaybe($('swLat').value), swLon=toNumberMaybe($('swLon').value),
+            neLat=toNumberMaybe($('neLat').value), neLon=toNumberMaybe($('neLon').value);
+      if(!validateBounds(swLat,swLon,neLat,neLon)){ toast('พิกัดกรอบภาพไม่ถูกต้อง (ต้อง SW < NE)'); return; }
+      const bounds = L.latLngBounds([swLat, swLon], [neLat, neLon]);
+      const layer = L.imageOverlay(imageState.pendingUrl, bounds, {pane:'imagePane', opacity: (parseInt($('imageOpacity').value,10)||60)/100, interactive:false});
+      layer.addTo(map);
+
+      const name = imageState.pendingName || ('overlay_'+overlaySeq);
+      overlaySeq++;
+      overlayCtl.addOverlay(layer, 'ภาพ: '+name);
+      const entry = {id: Date.now()+Math.random(), name, layer, visible:true, opacity: (parseInt($('imageOpacity').value,10)||60)/100};
+      imageState.overlays.push(entry);
+      createOverlayItemRow(entry);
+
+      // Enable global controls for next image
+      $('imageOpacity').disabled=false; $('imageVisibleChk').disabled=false;
+      toast('วางภาพบนแผนที่แล้ว');
+    }
+
+    $('imageFileInput').addEventListener('change', (ev)=>{
+      const file = ev.target.files && ev.target.files[0];
+      if(!file){ imageState.pendingUrl=null; imageState.pendingName=null; $('imagePendingName').textContent=''; $('placeImageBtn').disabled=true; $('useMapBoundsBtn').disabled=true; return; }
+      const url = URL.createObjectURL(file);
+      imageState.pendingUrl = url; imageState.pendingName = file.name;
+      $('imagePendingName').textContent = 'ไฟล์ที่เลือก: '+file.name;
+      $('placeImageBtn').disabled=false; $('useMapBoundsBtn').disabled=false; $('imageOpacity').disabled=false; $('imageVisibleChk').disabled=false;
+      applyPendingToInputsFromMapBounds();
+    });
+
+    $('useMapBoundsBtn').addEventListener('click', applyPendingToInputsFromMapBounds);
+    $('placeImageBtn').addEventListener('click', placePendingImage);
+
+    $('imageOpacity').addEventListener('input', ()=>{
+      const v = parseInt($('imageOpacity').value||'60',10); $('imageOpacityLabel').textContent = v+'%';
+    });
+    $('imageVisibleChk').addEventListener('change', (e)=>{
+      // toggle visibility for the most recently added overlay (if any)
+      const last = imageState.overlays[imageState.overlays.length-1];
+      if(!last) return;
+      last.visible = e.target.checked;
+      if(last.visible){ map.addLayer(last.layer); }
+      else { map.removeLayer(last.layer); }
+    });
+
+    // ===== Load boundaries =====
     async function loadSubdistricts(path=SUBD_PATH){
       const res=await fetch(path,{cache:'no-store'}); if(!res.ok) throw new Error('subdistricts HTTP '+res.status);
       const gj=await res.json();
@@ -554,6 +704,7 @@
     }
 
     $('uploadSection')?.addEventListener('toggle',()=>setTimeout(()=>map.invalidateSize(),120));
+    $('imageOverlaySection')?.addEventListener('toggle',()=>setTimeout(()=>map.invalidateSize(),120));
     window.addEventListener('resize',()=>setTimeout(()=>map.invalidateSize(),80));
 
     (async()=>{ try{ await loadSubdistricts(); await loadThailandBorder(); toast('โหลดขอบเขตสำเร็จ'); map.invalidateSize(); }catch(err){ console.error(err); toast('โหลดขอบเขตไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson / th_boundary.geojson'); } })();
