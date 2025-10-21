@@ -18,6 +18,14 @@
   <!-- SheetJS (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
+  <!-- Leaflet.draw for rectangle drawing -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+  <!-- Leaflet.DistortableImage (สำหรับลาก/ยืด/หมุน/บิดภาพ) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.distortableimage@0.12.1/dist/leaflet.distortableimage.css"/>
+  <script src="https://unpkg.com/leaflet.distortableimage@0.12.1/dist/leaflet.distortableimage.js"></script>
+
   <style>
     :root{--bg:#0b1020;--card:#10182b;--muted:#a9b0c0;--accent:#1e90ff;--danger:#e35b5b;--sel:#ff3b30}
     html,body{height:100%;margin:0;font-family:'Sarabun',system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
@@ -106,11 +114,6 @@
     @media (max-width:768px){.app{grid-template-columns:1fr;grid-template-areas:"right" "left"}#map{min-height:400px}.bar{flex-direction:column;align-items:stretch}.bar-right{justify-content:space-between}}
     @media (max-width:420px){#map{min-height:360px}input[type="number"].celled{width:85px}.btn{padding:8px 10px}.btn-icon{width:30px;height:30px}}
   </style>
-  
-  <!-- Leaflet.draw for rectangle drawing -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
-  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
-
 </head>
 <body>
   <div class="app">
@@ -148,7 +151,7 @@
           </thead>
           <tbody id="pointsTableBody">
             <tr class="row-editor">
-              <td class="t-act"><button class="btn-icon" id="addNewRowBtn" title="เพิ่มแถว">+</nbutton></td>
+              <td class="t-act"><button class="btn-icon" id="addNewRowBtn" title="เพิ่มแถว">+</button></td>
               <td class="t-num"><span class="pill">#</span></td>
               <td class="col-lat"><input id="newLat" class="celled" type="number" step="any" placeholder="13.7563"></td>
               <td class="col-lon"><input id="newLon" class="celled" type="number" step="any" placeholder="100.5018"></td>
@@ -182,11 +185,15 @@
       <details class="collapser" id="imageOverlaySection" open>
         <summary>Overlay รูปภาพ (PNG/JPG) บนแผนที่</summary>
         <div class="collapser-body">
-          <div class="small">1) เลือกไฟล์ภาพ 2) กำหนดตำแหน่งด้วยพิกัดหรือใช้ขอบเขตแผนที่ปัจจุบัน 3) ปรับโปร่งใส/เปิดปิด</div>
+          <div class="small">1) เลือกไฟล์ภาพ 2) กำหนดตำแหน่งด้วยพิกัด/ขอบเขตแผนที่/วาดกรอบ 3) วาง/แก้กรอบ/ล็อค</div>
+
           <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
-            $1
-            <button id=\"drawRectBtn\" class=\"btn btn-outline\">วาดกรอบบนแผนที่</button>
+            <input id="imageFileInput" type="file" accept="image/*" />
+            <button id="useMapBoundsBtn" class="btn btn-outline" disabled>ใช้ขอบเขตแผนที่</button>
+            <button id="drawRectBtn" class="btn btn-outline">วาดกรอบบนแผนที่</button>
+            <button id="placeImageBtn" class="btn" disabled>วางบนแผนที่</button>
           </div>
+
           <div id="imagePendingName" class="small" style="margin-top:6px;color:#b8c7ea"></div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
@@ -207,13 +214,19 @@
               <input id="neLon" type="number" step="any" class="celled" placeholder="104.0">
             </div>
           </div>
+
           <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center">
-            <button id="placeImageBtn" class="btn" disabled>วางบนแผนที่</button>
+            <button id="editFrameBtn" class="btn btn-outline" disabled>เข้าโหมดแก้กรอบ</button>
+            <button id="lockFrameBtn" class="btn btn-outline" disabled>ล็อคกรอบ</button>
+            <button id="resetFrameBtn" class="btn btn-outline" disabled>รีเซ็ตกรอบ</button>
+
             <label class="small" style="display:flex;align-items:center;gap:8px">
               โปร่งใส <input id="imageOpacity" type="range" min="0" max="100" value="60" disabled>
               <span id="imageOpacityLabel">60%</span>
             </label>
-            <label class="small" style="display:flex;align-items:center;gap:6px"><input id="imageVisibleChk" type="checkbox" checked disabled> แสดงภาพ</label>
+            <label class="small" style="display:flex;align-items:center;gap:6px">
+              <input id="imageVisibleChk" type="checkbox" checked disabled> แสดงภาพล่าสุด
+            </label>
           </div>
 
           <div id="overlayList" style="margin-top:12px"></div>
@@ -266,12 +279,13 @@
     const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
     map.fitBounds(thBounds);
 
-    // panes: polygons under, image overlays in middle, points over
+    // panes: polygons under, image overlays middle (toggle pointer-events), points top
     const polysPane = map.createPane('polysPane');
     polysPane.style.zIndex = 400; polysPane.style.pointerEvents = 'none';
 
     const imagePane = map.createPane('imagePane');
-    imagePane.style.zIndex = 550; imagePane.style.pointerEvents = 'none'; // so clicks go through to markers
+    imagePane.style.zIndex = 550;
+    imagePane.style.pointerEvents = 'none'; // เปิดเฉพาะตอนแก้กรอบ
 
     map.createPane('pointsPane').style.zIndex = 650;
 
@@ -300,6 +314,11 @@
     let subdistrictPolys=null, subdBBoxes=[];
     let thBorderPolys=null, thBBoxes=[];
     let addMode=false, tempAddMarker=null, selectedId=null;
+
+    // ===== helpers for image pane pointer events =====
+    function setImagePaneInteractive(on){
+      imagePane.style.pointerEvents = on ? 'auto' : 'none';
+    }
 
     // ===== Table / Markers =====
     function renderTable(){
@@ -601,18 +620,17 @@
       download('points_joined.geojson', JSON.stringify({type:'FeatureCollection',features:feats}), 'application/geo+json');
     });
 
-    // ===== Image Overlay logic =====
+    // ===== Image Overlay logic (DistortableImage) =====
     const imageState = {
       pendingUrl: null,
       pendingName: null,
-      overlays: [] // {id, name, layer, visible, opacity}
+      overlays: [] // {id, name, layer, visible, opacity, initialCorners}
     };
     let overlaySeq = 1;
 
     function validateBounds(swLat, swLon, neLat, neLon){
       return isFinite(swLat) && isFinite(swLon) && isFinite(neLat) && isFinite(neLon) && swLat < neLat && swLon < neLon;
     }
-
     function applyPendingToInputsFromMapBounds(){
       const b = map.getBounds();
       $('swLat').value = b.getSouthWest().lat.toFixed(6);
@@ -642,6 +660,11 @@
       row.querySelector(`[data-op="${entry.id}"]`).addEventListener('input', (e)=>{
         const v = Math.max(0, Math.min(100, parseInt(e.target.value||'60',10)))/100;
         entry.opacity = v; entry.layer.setOpacity(v);
+        // sync ตัวเลื่อนใหญ่ถ้าเป็นภาพล่าสุด
+        if(getLastOverlayEntry()?.id === entry.id){
+          $('imageOpacity').value = Math.round(v*100);
+          $('imageOpacityLabel').textContent = Math.round(v*100) + '%';
+        }
       });
       row.querySelector(`[data-del-img="${entry.id}"]`).addEventListener('click',()=>{
         map.removeLayer(entry.layer);
@@ -652,55 +675,154 @@
       });
     }
 
+    function getLastOverlayEntry(){
+      return imageState.overlays[imageState.overlays.length-1] || null;
+    }
+    function enableGlobalImageControls(entry){
+      const has = !!entry;
+      $('editFrameBtn').disabled = !has;
+      $('lockFrameBtn').disabled = !has;
+      $('resetFrameBtn').disabled = !has;
+      $('imageOpacity').disabled = !has;
+      $('imageVisibleChk').disabled = !has;
+      if(has){
+        $('imageOpacity').value = Math.round((entry.opacity ?? 0.6)*100);
+        $('imageOpacityLabel').textContent = Math.round((entry.opacity ?? 0.6)*100) + '%';
+        $('imageVisibleChk').checked = !!entry.visible;
+      }else{
+        $('imageOpacityLabel').textContent = '60%';
+      }
+    }
+    function syncInputsFromCorners(layer){
+      const cs = layer.getCorners(); // NW, NE, SE, SW
+      if(!cs || cs.length !== 4) return;
+      const lats = cs.map(c=>c.lat), lons = cs.map(c=>c.lng);
+      const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+      const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+      $('swLat').value = minLat.toFixed(6);
+      $('swLon').value = minLon.toFixed(6);
+      $('neLat').value = maxLat.toFixed(6);
+      $('neLon').value = maxLon.toFixed(6);
+    }
+    function enterEditMode(entry){
+      if(!entry) return;
+      if(entry.layer && entry.layer.editing && !entry.layer.editing._enabled){
+        setImagePaneInteractive(true);
+        entry.layer.options.pane = 'imagePane'; // ensure pane
+        entry.layer.bringToFront?.();
+        entry.layer.editing.enable();
+        toast('เข้าโหมดแก้กรอบ: ลากหูจับเพื่อปรับภาพ แล้วกด “ล็อคกรอบ”');
+        entry.layer.on('update', ()=>syncInputsFromCorners(entry.layer));
+      }
+    }
+    function lockEditMode(entry){
+      if(!entry) return;
+      if(entry.layer && entry.layer.editing && entry.layer.editing._enabled){
+        entry.layer.off('update');
+        entry.layer.editing.disable();
+        setImagePaneInteractive(false);
+        syncInputsFromCorners(entry.layer);
+        toast('ล็อคกรอบแล้ว');
+      }
+    }
+
     function placePendingImage(){
       if(!imageState.pendingUrl){ toast('ยังไม่ได้เลือกไฟล์ภาพ'); return; }
       const swLat=toNumberMaybe($('swLat').value), swLon=toNumberMaybe($('swLon').value),
             neLat=toNumberMaybe($('neLat').value), neLon=toNumberMaybe($('neLon').value);
       if(!validateBounds(swLat,swLon,neLat,neLon)){ toast('พิกัดกรอบภาพไม่ถูกต้อง (ต้อง SW < NE)'); return; }
+
       const bounds = L.latLngBounds([swLat, swLon], [neLat, neLon]);
-      const layer = L.imageOverlay(imageState.pendingUrl, bounds, {pane:'imagePane', opacity: (parseInt($('imageOpacity').value,10)||60)/100, interactive:false});
+      const op = (parseInt($('imageOpacity').value,10)||60)/100;
+      const nw = bounds.getNorthWest(), ne = bounds.getNorthEast(),
+            se = bounds.getSouthEast(), sw = bounds.getSouthWest();
+
+      const layer = L.distortableImageOverlay(imageState.pendingUrl, {
+        opacity: op,
+        corners: [nw, ne, se, sw],
+        actions: [],
+        pane: 'imagePane',
+        interactive: true
+      });
       layer.addTo(map);
 
-      const name = imageState.pendingName || ('overlay_'+overlaySeq);
-      overlaySeq++;
+      const name = imageState.pendingName || ('overlay_'+overlaySeq++);
       overlayCtl.addOverlay(layer, 'ภาพ: '+name);
-      const entry = {id: Date.now()+Math.random(), name, layer, visible:true, opacity: (parseInt($('imageOpacity').value,10)||60)/100};
+      const entry = {
+        id: Date.now()+Math.random(),
+        name,
+        layer,
+        visible:true,
+        opacity: op,
+        initialCorners: [nw, ne, se, sw]
+      };
       imageState.overlays.push(entry);
       createOverlayItemRow(entry);
 
-      // Enable global controls for next image
-      $('imageOpacity').disabled=false; $('imageVisibleChk').disabled=false;
-      toast('วางภาพบนแผนที่แล้ว');
+      // เปิดการควบคุมสำหรับภาพล่าสุด
+      enableGlobalImageControls(entry);
+      toast('วางภาพบนแผนที่แล้ว — ใช้ “เข้าโหมดแก้กรอบ” เพื่อปรับ');
     }
 
-    $('imageFileInput').addEventListener('change', (ev)=>{
-      const file = ev.target.files && ev.target.files[0];
-      if(!file){ imageState.pendingUrl=null; imageState.pendingName=null; $('imagePendingName').textContent=''; $('placeImageBtn').disabled=true; $('useMapBoundsBtn').disabled=true; return; }
-      const url = URL.createObjectURL(file);
-      imageState.pendingUrl = url; imageState.pendingName = file.name;
-      $('imagePendingName').textContent = 'ไฟล์ที่เลือก: '+file.name;
-      $('placeImageBtn').disabled=false; $('useMapBoundsBtn').disabled=false; $('imageOpacity').disabled=false; $('imageVisibleChk').disabled=false;
-      applyPendingToInputsFromMapBounds();
-    });
-
-    $('useMapBoundsBtn').addEventListener('click', applyPendingToInputsFromMapBounds);
-    $('placeImageBtn').addEventListener('click', placePendingImage);
-
+    // Global controls (ภาพล่าสุด)
     $('imageOpacity').addEventListener('input', ()=>{
-      const v = parseInt($('imageOpacity').value||'60',10); $('imageOpacityLabel').textContent = v+'%';
+      const v = parseInt($('imageOpacity').value||'60',10);
+      $('imageOpacityLabel').textContent = v+'%';
+      const last = getLastOverlayEntry();
+      if(last){
+        last.opacity = v/100;
+        last.layer.setOpacity(last.opacity);
+        const rowRange = document.querySelector(`[data-op="${last.id}"]`);
+        if(rowRange) rowRange.value = v;
+      }
     });
     $('imageVisibleChk').addEventListener('change', (e)=>{
-      // toggle visibility for the most recently added overlay (if any)
-      const last = imageState.overlays[imageState.overlays.length-1];
+      const last = getLastOverlayEntry();
       if(!last) return;
       last.visible = e.target.checked;
       if(last.visible){ map.addLayer(last.layer); }
       else { map.removeLayer(last.layer); }
+      const rowVis = document.querySelector(`[data-vis="${last.id}"]`);
+      if(rowVis) rowVis.checked = last.visible;
     });
+    $('editFrameBtn').addEventListener('click', ()=>{
+      const last = getLastOverlayEntry();
+      if(!last){ toast('ยังไม่มีภาพบนแผนที่'); return; }
+      enterEditMode(last);
+    });
+    $('lockFrameBtn').addEventListener('click', ()=>{
+      const last = getLastOverlayEntry();
+      if(!last){ toast('ยังไม่มีภาพบนแผนที่'); return; }
+      lockEditMode(last);
+    });
+    $('resetFrameBtn').addEventListener('click', ()=>{
+      const last = getLastOverlayEntry();
+      if(!last){ toast('ยังไม่มีภาพบนแผนที่'); return; }
+      // รีเซ็ตมุมกลับค่าตั้งต้น + อัปเดตช่องพิกัด
+      last.layer.setCorners(last.initialCorners);
+      syncInputsFromCorners(last.layer);
+      toast('รีเซ็ตกรอบเป็นค่าเริ่มต้นแล้ว');
+    });
+
+    // File select & helpers
+    $('imageFileInput').addEventListener('change', (ev)=>{
+      const file = ev.target.files && ev.target.files[0];
+      if(!file){
+        imageState.pendingUrl=null; imageState.pendingName=null;
+        $('imagePendingName').textContent=''; $('placeImageBtn').disabled=true; $('useMapBoundsBtn').disabled=true;
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      imageState.pendingUrl = url; imageState.pendingName = file.name;
+      $('imagePendingName').textContent = 'ไฟล์ที่เลือก: '+file.name;
+      $('placeImageBtn').disabled=false; $('useMapBoundsBtn').disabled=false;
+      applyPendingToInputsFromMapBounds();
+    });
+    $('useMapBoundsBtn').addEventListener('click', applyPendingToInputsFromMapBounds);
+    $('placeImageBtn').addEventListener('click', placePendingImage);
 
     // ===== Rectangle draw (bounds picker) =====
     let drawnRectLayer = null;
-
     function startDrawRectangle(){
       if(!L || !L.Draw || !L.Draw.Rectangle){ toast('ไม่พบปลั๊กอิน Leaflet.draw'); return; }
       if(drawnRectLayer){ drawGroup.removeLayer(drawnRectLayer); drawnRectLayer = null; }
@@ -717,13 +839,10 @@
         $('neLat').value = b.getNorthEast().lat.toFixed(6);
         $('neLon').value = b.getNorthEast().lng.toFixed(6);
         $('placeImageBtn').disabled = !imageState.pendingUrl;
-        $('imageOpacity').disabled = !imageState.pendingUrl ? true : false;
-        $('imageVisibleChk').disabled = !imageState.pendingUrl ? true : false;
         toast('ได้กรอบพิกัดจากการวาดแล้ว');
       };
       map.on(L.Draw.Event.CREATED, onCreated);
     }
-
     $('drawRectBtn').addEventListener('click', startDrawRectangle);
 
     // ===== Load boundaries =====
