@@ -642,6 +642,7 @@
       $('neLon').value = b.getNorthEast().lng.toFixed(6);
     }
 
+    // ======= UPDATED: ต่อแถว overlay มีปุ่ม ✎/🔒/✕ =======
     function createOverlayItemRow(entry){
       const row = document.createElement('div');
       row.className = 'overlay-item';
@@ -651,15 +652,19 @@
         <div class="row">
           <label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vis="${entry.id}" ${entry.visible?'checked':''}> แสดง</label>
           <label class="small" style="display:flex;align-items:center;gap:6px">โปร่งใส <input type="range" min="0" max="100" value="${Math.round(entry.opacity*100)}" data-op="${entry.id}"></label>
+          <button class="btn-icon" title="แก้กรอบ" data-edit-img="${entry.id}">✎</button>
+          <button class="btn-icon" title="ล็อคกรอบ" data-lock-img="${entry.id}">🔒</button>
           <button class="btn-icon danger" title="ลบ" data-del-img="${entry.id}">✕</button>
         </div>`;
       $('overlayList').appendChild(row);
 
+      // แสดง/ซ่อน
       row.querySelector(`[data-vis="${entry.id}"]`).addEventListener('change', (e)=>{
         entry.visible = e.target.checked;
         if(entry.visible){ map.addLayer(entry.layer); }
         else { map.removeLayer(entry.layer); }
       });
+      // โปร่งใส
       row.querySelector(`[data-op="${entry.id}"]`).addEventListener('input', (e)=>{
         const v = Math.max(0, Math.min(100, parseInt(e.target.value||'60',10)))/100;
         entry.opacity = v; entry.layer.setOpacity(v);
@@ -668,6 +673,16 @@
           $('imageOpacityLabel').textContent = Math.round(v*100) + '%';
         }
       });
+      // ✎ แก้กรอบเฉพาะรายการ
+      row.querySelector(`[data-edit-img="${entry.id}"]`).addEventListener('click', ()=>{
+        if(!isDistortable(entry.layer)){ toast('เลเยอร์นี้เป็น ImageOverlay ปกติ แก้กรอบไม่ได้'); return; }
+        enterEditMode(entry);
+      });
+      // 🔒 ล็อคกรอบเฉพาะรายการ
+      row.querySelector(`[data-lock-img="${entry.id}"]`).addEventListener('click', ()=>{
+        lockEditMode(entry);
+      });
+      // ลบ
       row.querySelector(`[data-del-img="${entry.id}"]`).addEventListener('click',()=>{
         map.removeLayer(entry.layer);
         overlayCtl.removeLayer(entry.layer);
