@@ -268,6 +268,29 @@
   function toNumberMaybe(v){ if (typeof v==='number') return v; if (typeof v==='string'){ const s=v.trim().replace(/,/g,'.'); const f=parseFloat(s); return isNaN(f)?null:f;} return null; }
   function download(filename, data, mime='application/octet-stream'){ const blob=new Blob([data],{type:mime}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url); }
 
+  /* =======================
+     (1) DistortableImage loader & detector  (multi-CDN fallback)
+     ======================= */
+  function loadJS(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.async=true;s.crossOrigin='anonymous';s.referrerPolicy='no-referrer';s.onload=res;s.onerror=()=>rej(new Error('load fail '+src));document.head.appendChild(s);});}
+  function loadCSS(href){return new Promise((res,rej)=>{const l=document.createElement('link');l.rel='stylesheet';l.href=href;l.crossOrigin='anonymous';l.referrerPolicy='no-referrer';l.onload=res;l.onerror=()=>rej(new Error('load fail '+href));document.head.appendChild(l);});}
+  function hasDistortable(){ return !!(window.L && (L.distortableImageOverlay || L.DistortableImageOverlay)); }
+  async function ensureDistortableLoaded(){
+    if(hasDistortable()) return true;
+    const cssList=[
+      'https://unpkg.com/leaflet-distortableimage@0.13.6/dist/leaflet.distortableimage.css',
+      'https://cdn.jsdelivr.net/npm/leaflet-distortableimage@0.13.6/dist/leaflet.distortableimage.css'
+    ];
+    const jsList=[
+      'https://unpkg.com/leaflet-distortableimage@0.13.6/dist/leaflet.distortableimage.js',
+      'https://cdn.jsdelivr.net/npm/leaflet-distortableimage@0.13.6/dist/leaflet.distortableimage.js'
+    ];
+    for(const href of cssList){ try{ await loadCSS(href); break; }catch(e){} }
+    for(const src of jsList){
+      try{ await loadJS(src); if(hasDistortable()) return true; }catch(e){}
+    }
+    return hasDistortable();
+  }
+
   const FIELD_TAMBON='tam_th', FIELD_AMPHOE='amp_th', FIELD_CHANGWAT='pro_th', FIELD_TAMCODE='tam_code';
   const SUBD_PATH='subdistricts.geojson', TH_BORDER_PATH='th_boundary.geojson';
 
@@ -343,7 +366,6 @@
     function deleteRectangle(){
       if(currentRect){ drawnItems.removeLayer(currentRect); currentRect=null; }
       if(editEnabled) disableEditMode();
-      // ไม่ลบรูปอัตโนมัติ เพื่อให้ผู้ใช้ยังแก้ 4 มุมต่อได้ถ้าอยู่ในโหมด distort
       toast('ลบกรอบแล้ว');
     }
 
@@ -733,27 +755,32 @@
         toast('วาง/อัปเดตรูป (โหมดสี่เหลี่ยม) สำเร็จ');
 
       }else{
-        // ใช้ DistortableImage (บิด/หมุน/เอียง 4 มุม)
-        if(typeof L.DistortableImageOverlay!=='function'){
-          toast('ปลั๊กอิน DistortableImage ไม่พร้อมใช้งาน'); return;
-        }
-        removeRectOverlayIfAny();
+        // ใช้ DistortableImage (บิด/หมุน/เอียง 4 มุม) — โหลดสำรองถ้ายังไม่พร้อม
+        (async ()=>{
+          const ok = hasDistortable() || await ensureDistortableLoaded();
+          if(!ok){
+            toast('ปลั๊กอิน DistortableImage ไม่พร้อมใช้งาน (โหลดไม่สำเร็จ)');
+            return;
+          }
+          removeRectOverlayIfAny();
 
-        const nw=b.getNorthWest(), ne=b.getNorthEast(), se=b.getSouthEast(), sw=b.getSouthWest();
-        const corners=[nw, ne, se, sw]; // ลำดับ: NW, NE, SE, SW
+          const nw=b.getNorthWest(), ne=b.getNorthEast(), se=b.getSouthEast(), sw=b.getSouthWest();
+          const corners=[nw, ne, se, sw];
 
-        // อัปเดตแทนที่จะสร้างใหม่ (เพื่อความชัวร์ ใช้วิธี recreate ทุกครั้ง)
-        removeDistortOverlayIfAny();
+          removeDistortOverlayIfAny();
 
-        imageOverlayDistort = L.distortableImageOverlay(imageBlobUrl, {
-          corners,
-          opacity,
-          pane:'imagePane',
-          suppressToolbar:true,  // ซ่อนทูลบาร์
-          editable:true          // ให้แก้ไขได้
-        });
-        imageOverlayLayer.addLayer(imageOverlayDistort);
-        toast('วาง/อัปเดตรูป (โหมดบิด 4 มุม) สำเร็จ');
+          if (typeof L.distortableImageOverlay === 'function') {
+            imageOverlayDistort = L.distortableImageOverlay(imageBlobUrl, {
+              corners, opacity, pane:'imagePane', suppressToolbar:true, editable:true
+            });
+          } else {
+            imageOverlayDistort = new L.DistortableImageOverlay(imageBlobUrl, {
+              corners, opacity, pane:'imagePane', suppressToolbar:true, editable:true
+            });
+          }
+          imageOverlayLayer.addLayer(imageOverlayDistort);
+          toast('วาง/อัปเดตรูป (โหมดบิด 4 มุม) สำเร็จ');
+        })();
       }
     }
 
@@ -766,12 +793,9 @@
       toast('โหลดรูปแล้ว — วาด/แก้กรอบและ “วางรูป”');
     });
 
-    // โหมดรูปสลับ -> แนะนำให้ "วางรูป" ใหม่ให้สอดคล้องโหมด
+    // โหมดรูปสลับ -> ให้ผู้ใช้กดวางรูปเองเพื่ออัปเดต
     document.querySelectorAll('input[name="overlayMode"]').forEach(r=>{
-      r.addEventListener('change', ()=>{
-        // ไม่วางให้อัตโนมัติ เพื่อเลี่ยงสับสน – ให้ผู้ใช้กดวางรูปเอง
-        toast('เปลี่ยนโหมดรูปแล้ว: กด “วางรูป” เพื่ออัปเดต');
-      });
+      r.addEventListener('change', ()=>{ toast('เปลี่ยนโหมดรูปแล้ว: กด “วางรูป” เพื่ออัปเดต'); });
     });
 
     // control buttons
@@ -789,11 +813,11 @@
     $('btnEditToggle').addEventListener('click', ()=>{
       if(currentOverlayMode()==='distort'){
         toast('ปุ่มนี้ใช้กับโหมดสี่เหลี่ยมเท่านั้น'); return;
-        }
+      }
       toggleEditMode();
     });
 
-    // Toggle edit mode (Distort)
+    // Toggle edit mode (Distort) — (คง handler เดิม ไม่ใส่แพตช์ข้อ 3)
     $('btnDistortToggle').addEventListener('click', ()=>{
       if(currentOverlayMode()!=='distort'){
         toast('ปุ่มนี้ใช้กับโหมดบิด 4 มุมเท่านั้น'); return;
@@ -826,20 +850,19 @@
       if(imageOverlayDistort && imageOverlayDistort.setOpacity) imageOverlayDistort.setOpacity(op);
     });
 
-    // Draw events (ใช้กับโหมดสี่เหลี่ยม: live update เฉพาะ overlay แบบ Rect)
+    // Draw events (Rect)
     map.on(L.Draw.Event.CREATED, function (e) {
       if (e.layerType === 'rectangle') {
         if (currentRect) drawnItems.removeLayer(currentRect);
         currentRect = e.layer;
         drawnItems.addLayer(currentRect);
         if(rectDrawer) rectDrawer.disable();
-        // ไม่วางอัตโนมัติ ให้ผู้ใช้กด "วางรูป" เพื่อเลือกโหมดด้วย
+        // ให้ผู้ใช้กด "วางรูป" เอง
       }
     });
 
     function onRectLiveEdit(){
       if(!currentRect){ currentRect = getCurrentRectangle(); }
-      // อัปเดตแบบเรียลไทม์เฉพาะ overlay แบบ Rect
       if(imageOverlayRect){
         const b=currentRect?.getBounds?.(); if(b){ imageOverlayRect.setBounds(b); }
       }
@@ -854,10 +877,6 @@
       if(rectDeleted){ currentRect=null; }
       if(editEnabled) disableEditMode();
     });
-
-    // ====== Points I/O ต่อจากเดิม ======
-    // (คงโค้ดส่วน Export/Join/Upload ตามเดิมด้านบนแล้ว)
-
   });
   </script>
 </body>
