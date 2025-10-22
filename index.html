@@ -107,7 +107,7 @@
     /* ซ่อน toolbar ของ Leaflet.draw (เราใช้ปุ่มในกล่องแทน) */
     .leaflet-draw{display:none !important;}
 
-    /* บังคับเฉพาะ 2D — ไม่มีแกน Z / perspective */
+    /* 2D only */
     .leaflet-pane.imagePane img,
     .leaflet-distortable-image,
     .leaflet-distortable-overlay,
@@ -194,7 +194,7 @@
         <div class="collapser-body">
           <div class="small">
             ขั้นตอน: เลือกรูป → <b>วาดกรอบ</b> → กด <b>วางรูป</b> → เลือกโหมด<br>
-            • โหมด <b>สี่เหลี่ยม</b>: รูปยืด-หดตามกรอบ (ไม่ล็อกสัดส่วน) และเลื่อนไปกับกรอบ<br>
+            • โหมด <b>สี่เหลี่ยม</b>: ยืด-หดตามกรอบ (ไม่ล็อกสัดส่วน)<br>
             • โหมด <b>บิด/หมุน 4 มุม</b>: บิด/หมุน/เอียงได้อิสระ (DistortableImage แบบ 2D)
           </div>
 
@@ -312,8 +312,13 @@
     // panes for z-order
     const polysPane = map.createPane('polysPane');
     polysPane.style.zIndex = 400; polysPane.style.pointerEvents = 'none';
-    map.createPane('imagePane').style.zIndex = 600; // image under points
+    map.createPane('imagePane').style.zIndex = 600; // สำหรับ L.imageOverlay
     map.createPane('pointsPane').style.zIndex = 650;
+
+    // pane แยกสำหรับ DistortableImage (ให้รับคลิกและอยู่บนสุด)
+    const distortPane = map.createPane('distortPane');
+    distortPane.style.zIndex = 700;
+    distortPane.style.pointerEvents = 'auto';
 
     const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery © Esri'});
@@ -733,20 +738,25 @@
       }
     }
 
+    // ปิด draw-edit ถ้ากำลังเปิดอยู่ (กันชนกับ Distortable)
+    function turnOffRectEditIfAny(){ try{ if(editEnabled) disableEditMode(); }catch(e){} }
+
     // ---- ซิงก์: Rect -> Distort
     function ensureDistortFromRect(rectBounds, opacity){
+      turnOffRectEditIfAny(); // สำคัญมาก
       const b = rectBounds;
       const nw=b.getNorthWest(), ne=b.getNorthEast(), se=b.getSouthEast(), sw=b.getSouthWest();
-      const corners=[nw, ne, se, sw];
+      // DistortableImage ต้องการลำดับ: TL, TR, BL, BR
+      const corners=[nw, ne, sw, se];
 
       removeDistortOverlayIfAny();
       if (typeof L.distortableImageOverlay === 'function') {
         imageOverlayDistort = L.distortableImageOverlay(imageBlobUrl, {
-          corners, opacity, pane:'imagePane', suppressToolbar:true, editable:true
+          corners, opacity, pane:'distortPane', suppressToolbar:true, editable:true
         });
       } else {
         imageOverlayDistort = new L.DistortableImageOverlay(imageBlobUrl, {
-          corners, opacity, pane:'imagePane', suppressToolbar:true, editable:true
+          corners, opacity, pane:'distortPane', suppressToolbar:true, editable:true
         });
       }
       imageOverlayLayer.addLayer(imageOverlayDistort);
@@ -766,7 +776,6 @@
       imageOverlayRect = L.imageOverlay(imageBlobUrl, b, {opacity, pane:'imagePane', interactive:false});
       imageOverlayLayer.addLayer(imageOverlayRect);
 
-      // อัปเดตกรอบแก้ไขให้ตรงกับรูป
       if(currentRect) drawnItems.removeLayer(currentRect);
       currentRect = L.rectangle(b, drawOptions.shapeOptions);
       drawnItems.addLayer(currentRect);
@@ -780,11 +789,9 @@
       const opacity=getOpacity01();
 
       if(mode==='rect'){
-        // ต้องมีกรอบเพื่อวางรูป
         if(!currentRect){ toast('โปรดวาดกรอบสี่เหลี่ยมบนแผนที่ก่อน'); return; }
         const b=currentRect.getBounds();
 
-        // วาง/อัปเดตแบบสี่เหลี่ยม และลบโหมด 4 มุมทิ้ง
         removeDistortOverlayIfAny();
         const opt={opacity, pane:'imagePane', interactive:false};
         if(!imageOverlayRect){
@@ -798,7 +805,6 @@
         toast('วาง/อัปเดตรูป (โหมดสี่เหลี่ยม) สำเร็จ');
 
       }else{
-        // โหมด 4 มุม: โหลดปลั๊กอิน (ถ้ายัง), ต้องมีกรอบเป็นต้นทาง
         (async ()=>{
           const ok = hasDistortable() || await ensureDistortableLoaded();
           if(!ok){ toast('ปลั๊กอิน DistortableImage ไม่พร้อมใช้งาน (โหลดไม่สำเร็จ)'); return; }
@@ -806,7 +812,7 @@
 
           const b=currentRect.getBounds();
           removeRectOverlayIfAny();
-          ensureDistortFromRect(b, opacity); // แปลงจากกรอบ → 4 มุม
+          ensureDistortFromRect(b, opacity); // แปลง Rect → 4 มุม (ลำดับมุมถูกต้อง)
           toast('วาง/อัปเดตรูป (โหมดบิด 4 มุม) สำเร็จ');
         })();
       }
@@ -828,7 +834,6 @@
         const op = getOpacity01();
 
         if(mode==='rect'){
-          // ถ้ามี 4 มุมอยู่ → แปลงเป็นสี่เหลี่ยม + สร้างกรอบแก้ไขให้ด้วย
           if(imageBlobUrl && imageOverlayDistort){
             ensureRectFromDistort(op);
             removeDistortOverlayIfAny();
@@ -837,7 +842,6 @@
             toast('โหมดสี่เหลี่ยม: ถ้ายังไม่เห็นรูป กด “วางรูป” หรือวาดกรอบก่อน');
           }
         }else{
-          // ไปโหมด 4 มุม: ต้องมีปลั๊กอินและมีกรอบ/รูปตั้งต้น
           const ok = hasDistortable() || await ensureDistortableLoaded();
           if(!ok){ toast('ปลั๊กอิน DistortableImage ไม่พร้อมใช้งาน'); return; }
 
@@ -847,7 +851,6 @@
             removeRectOverlayIfAny();
             toast('ซิงก์จากสี่เหลี่ยม → 4 มุม แล้ว');
           } else if(imageOverlayDistort){
-            // มี 4 มุมอยู่แล้ว ไม่ต้องทำอะไร
             toast('โหมด 4 มุมพร้อมใช้งาน');
           } else {
             toast('โหมด 4 มุม: โปรดวาดกรอบและกด “วางรูป” ก่อน');
@@ -908,7 +911,7 @@
       if(imageOverlayDistort && imageOverlayDistort.setOpacity) imageOverlayDistort.setOpacity(op);
     });
 
-    // Draw events (Rect) — อัปเดต bounds แบบเรียลไทม์เฉพาะโหมดสี่เหลี่ยม
+    // Draw events (Rect)
     map.on(L.Draw.Event.CREATED, function (e) {
       if (e.layerType === 'rectangle') {
         if (currentRect) drawnItems.removeLayer(currentRect);
