@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Join Attributes Tool - ONWR (Image Overlay)</title>
+  <title>Join Atrributes Tool - ONWR</title>
 
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@200;300;400&display=swap" rel="stylesheet">
@@ -12,15 +12,15 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+  <!-- Leaflet.draw -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
   <!-- Turf.js -->
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
   <!-- SheetJS (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-  <!-- Leaflet.draw -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
-  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
   <style>
     :root{--bg:#0b1020;--card:#10182b;--muted:#a9b0c0;--accent:#1e90ff;--danger:#e35b5b;--sel:#ff3b30}
@@ -43,7 +43,7 @@
     .btn{background:linear-gradient(180deg,#1e90ff,#1475d6);border:none;color:#fff;padding:10px 12px;border-radius:10px;cursor:pointer}
     .btn:disabled{opacity:.5;cursor:not-allowed}
     .btn-outline{background:transparent;border:1px solid #2a3354;color:#d6e5ff}
-    .btn-danger{background:transparent;border:1px solid #703a3a;color:#ffbCBC}
+    .btn-danger{background:transparent;border:1px solid #703a3a;color:#ffbcbc}
     .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;border:1px solid #2a3354;background:#0e162b;color:#d6e5ff;font-size:18px;line-height:1}
     .btn-icon.danger{border-color:#5a2a2a;color:#ffcccc}
     .btn-danger-solid{background:linear-gradient(180deg,#e35b5b,#c84949);color:#fff;border:none;padding:8px 12px;border-radius:10px;cursor:pointer}
@@ -82,9 +82,9 @@
     .row-editor td{position:sticky;top:32px;background:#0f1933;border-bottom:1px solid #233056}
 
     details.collapser{border:1px solid #243056;border-radius:10px;background:#0e1526;padding:8px 10px;margin:8px 0}
-    details.collapser>summary{cursor:pointer;list-style:none;font-weight:300;color:#cfe0ff;display:flex;align-items:center;gap:8px;user-select:none; font-size:13px}
+    details.collapser>summary{cursor:pointer;list-style:none;font-weight:300;color:#cfe0ff;display:flex;align-items:center;gap:8px;user-select:none;font-size:13px}
+    details.collapser>summary::before{content:"▾";display:inline-block;transform:rotate(0);transition:transform .15s;opacity:.8}
     details.collapser[open]>summary::before{transform:rotate(180deg)}
-    details.collapser>summary::before{content:"▾";display:inline-block;transition:transform .15s;opacity:.8}
     .collapser-body{margin-top:8px}
 
     .modal-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:99999;padding:16px}
@@ -100,15 +100,8 @@
 
     .col-tambon,.col-amphoe,.col-changwat{min-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-    /* Panel overlay list */
-    .overlay-item{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:6px 8px;border:1px solid #1f2942;border-radius:8px;margin:6px 0;background:#0d1428}
-    .overlay-item .name{font-size:13px;color:#dbe6ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
-    .overlay-item .row{display:flex;align-items:center;gap:8px}
-    input[type="range"]{width:120px}
-
-    /* ให้กรอบแก้ไขรับเมาส์เต็มที่ */
-    .leaflet-pane.drawPane,
-    .leaflet-overlay-pane svg path { pointer-events:auto !important; }
+    /* ซ่อน toolbar ของ Leaflet.draw (เราใช้ปุ่มในกล่องแทน) */
+    .leaflet-draw{display:none !important;}
 
     @media (max-width:1024px){.app{grid-template-columns:380px 1fr}#map{min-height:520px}}
     @media (max-width:768px){.app{grid-template-columns:1fr;grid-template-areas:"right" "left"}#map{min-height:400px}.bar{flex-direction:column;align-items:stretch}.bar-right{justify-content:space-between}}
@@ -125,10 +118,10 @@
       <div class="bar">
         <div class="bar-left">
           <h2 style="margin-top:25px">Attribute Table</h2>
-          <button class="btn btn-outline" id="rejoinBtn" style="margin-top:20px">Re-Join</button>
+          <button class="btn btn-outline" id="rejoinBtn" title="คำนวณใหม่จาก polygon" style="margin-top:20px">Re-Join</button>
         </div>
         <div class="bar-right">
-          <button id="toggleAddModeBtn" class="toggle" aria-pressed="false" style="margin-top:20px">
+          <button id="toggleAddModeBtn" class="toggle" aria-pressed="false" title="เพิ่มจุดจากแผนที่ (Toggle)" style="margin-top:20px">
             <span class="track"><span class="knob"></span></span>
             <span class="label" id="toggleAddModeLabel">เพิ่มจุดจากแผนที่</span>
           </button>
@@ -166,7 +159,8 @@
         <div><button class="btn btn-outline" id="clearPointsBtn">ล้างจุดทั้งหมด</button></div>
       </div>
 
-      <details class="collapser" id="uploadSection">
+      <!-- Upload จุดจาก Excel/CSV -->
+      <details class="collapser" id="uploadSection" open>
         <summary>Upload จุดจาก Excel/CSV</summary>
         <div class="collapser-body">
           <label class="small" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -181,43 +175,36 @@
         </div>
       </details>
 
-      <!-- Image Overlay Section -->
-      <details class="collapser" id="imageOverlaySection" open>
-        <summary>Overlay รูปภาพ (PNG/JPG) บนแผนที่</summary>
+      <!-- แนบรูปบนแผนที่ -->
+      <details class="collapser" id="imgSection">
+        <summary>แนบรูปบนแผนที่ (Image Overlay)</summary>
         <div class="collapser-body">
-          <div class="small">1) เลือกไฟล์ภาพ 2) กำหนดตำแหน่งด้วยพิกัด/ขอบเขตแผนที่/วาดกรอบ 3) วาง/แก้กรอบ/ล็อค</div>
+          <div class="small">ขั้นตอน: เลือกรูป → <b>วาดกรอบ</b> แล้วลากบนแผนที่ → กด <b>แก้กรอบ</b> (Toggle) เพื่อขยับ/ยืด — รูปปรับตามแบบเรียลไทม์ และยืด-หดได้อิสระ (ไม่ล็อกสัดส่วน)</div>
 
-          <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
-            <input id="imageFileInput" type="file" accept="image/*" />
-            <button id="useMapBoundsBtn" class="btn btn-outline" disabled>ใช้ขอบเขตแผนที่</button>
-            <button id="drawRectBtn" class="btn btn-outline">วาดกรอบบนแผนที่</button>
-            <button id="placeImageBtn" class="btn" disabled>วางบนแผนที่</button>
+          <!-- แถว 1: วาดกรอบ, ลบกรอบ, วางรูป, ลบรูป -->
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <input id="imgInput" type="file" accept="image/*" title="เลือกไฟล์รูป"/>
+            <button id="btnDrawRect" class="btn btn-outline" title="วาดกรอบใหม่">วาดกรอบ</button>
+            <button id="btnDeleteRect" class="btn btn-danger" title="ลบกรอบ">ลบกรอบ</button>
+            <button id="useRectBtn" class="btn" title="วาง/อัปเดตรูปตามกรอบ">วางรูป</button>
+            <button id="clearImgBtn" class="btn btn-danger" title="ลบรูปจากแผนที่">ลบรูป</button>
           </div>
 
-          <div id="imagePendingName" class="small" style="margin-top:6px;color:#b8c7ea"></div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-            <div><label class="small">SW Lat</label><input id="swLat" type="number" step="any" class="celled" placeholder="11.0"></div>
-            <div><label class="small">SW Lon</label><input id="swLon" type="number" step="any" class="celled" placeholder="100.0"></div>
-            <div><label class="small">NE Lat</label><input id="neLat" type="number" step="any" class="celled" placeholder="15.0"></div>
-            <div><label class="small">NE Lon</label><input id="neLon" type="number" step="any" class="celled" placeholder="104.0"></div>
+          <!-- แถว 2: Toggle เข้า/ออกโหมดแก้กรอบ -->
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <button id="btnEditToggle" class="toggle" aria-pressed="false" title="เข้า/ออกโหมดแก้กรอบ">
+              <span class="track"><span class="knob"></span></span>
+              <span class="label" id="btnEditToggleLabel">เข้าโหมดแก้กรอบ</span>
+            </button>
           </div>
 
-          <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center">
-            <button id="editFrameBtn" class="btn btn-outline" disabled>เข้าโหมดแก้กรอบ</button>
-            <button id="lockFrameBtn" class="btn btn-outline" disabled>ล็อคกรอบ</button>
-            <button id="resetFrameBtn" class="btn btn-outline" disabled>รีเซ็ตกรอบ</button>
-
-            <label class="small" style="display:flex;align-items:center;gap:8px">
-              โปร่งใส <input id="imageOpacity" type="range" min="0" max="100" value="60" disabled>
-              <span id="imageOpacityLabel">60%</span>
-            </label>
-            <label class="small" style="display:flex;align-items:center;gap:6px">
-              <input id="imageVisibleChk" type="checkbox" checked disabled> แสดงภาพล่าสุด
-            </label>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+            <label class="small" for="imgOpacity">โปร่งใส (%)</label>
+            <input id="imgOpacity" type="range" min="0" max="100" value="35" />
+            <span class="small" id="imgOpacityVal">35%</span>
           </div>
 
-          <div id="overlayList" style="margin-top:12px"></div>
+          <div class="note" style="margin-top:6px">* ปิด/เปิดเลเยอร์รูปได้ที่ “Layers” มุมขวาบน (ชื่อเลเยอร์: แนบรูป (Image))</div>
         </div>
       </details>
 
@@ -263,95 +250,83 @@
   const SELECTED_POINT_COLOR='#e53935', SELECTED_POINT_RADIUS=7;
 
   document.addEventListener('DOMContentLoaded', () => {
+    // ====== Map init ======
     const map = L.map('map', {preferCanvas:true});
     const thBounds = L.latLngBounds([5.5, 97.3], [20.5, 105.7]);
     map.fitBounds(thBounds);
 
-    // panes
+    // panes for z-order
     const polysPane = map.createPane('polysPane');
     polysPane.style.zIndex = 400; polysPane.style.pointerEvents = 'none';
-
-    const imagePane = map.createPane('imagePane');
-    imagePane.style.zIndex = 550;
-    imagePane.style.pointerEvents = 'auto';
-
+    map.createPane('imagePane').style.zIndex = 600; // image under points
     map.createPane('pointsPane').style.zIndex = 650;
-
-    const drawPane = map.createPane('drawPane');
-    drawPane.style.zIndex = 700;             // drawPane สูงกว่า imagePane
-    drawPane.style.pointerEvents = 'auto';
 
     const osmStd = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery © Esri'});
-    L.control.layers({'OSM':osmStd,'Satellite':satellite}, null, {collapsed:false, position:'topright'}).addTo(map);
 
-    L.control.scale({imperial:false, metric:true}).addTo(map);
-    setTimeout(()=>map.invalidateSize(true),300);
-
+    // main overlays
     const thBorderLayer = L.geoJSON(null,{pane:'polysPane', style:{color:'#000',weight:2,fill:false}}).addTo(map);
     const selectedPolysLayer = L.geoJSON(null,{pane:'polysPane', style:{color:DEFAULT_POLY_COLOR,weight:DEFAULT_POLY_WEIGHT,fill:false}}).addTo(map);
     const pointsLayer = L.layerGroup().addTo(map);
 
-    // groups
-    const editFeatureGroup = L.featureGroup(null, {pane:'drawPane'}).addTo(map); // rectangles ที่แก้ไข
-    const drawGroup = L.featureGroup(null, {pane:'drawPane'}).addTo(map);
+    // image overlay holder (for checkbox toggle)
+    const imageOverlayLayer = L.layerGroup().addTo(map);
 
-    const overlayCtl = L.control.layers(null, {'จุด':pointsLayer,'ตำบล':selectedPolysLayer,'ประเทศไทย':thBorderLayer}, {collapsed:false, position:'topright'}).addTo(map);
+    // Layers control (with checkboxes)
+    const baseMaps = {'OSM':osmStd,'Satellite':satellite};
+    const overlayMaps = {'จุด':pointsLayer,'ตำบล':selectedPolysLayer,'ประเทศไทย':thBorderLayer,'แนบรูป (Image)':imageOverlayLayer};
+    L.control.layers(baseMaps, overlayMaps, {collapsed:false, position:'topright'}).addTo(map);
 
+    L.control.scale({imperial:false, metric:true}).addTo(map);
+    setTimeout(()=>map.invalidateSize(true),300);
+
+    // ====== Leaflet.draw infra (custom buttons) ======
+    const drawnItems = new L.FeatureGroup().addTo(map);
+    const drawOptions = { shapeOptions:{ color:'#ff9800', weight:2, fill:false }, repeatMode:false };
+    let rectDrawer = null; // L.Draw.Rectangle
+    let editToolbar = null; // L.EditToolbar.Edit
+    let editEnabled = false;
+    let currentRect = null;
+
+    function enableDrawRectangle(){
+      if(rectDrawer){ rectDrawer.disable(); }
+      rectDrawer = new L.Draw.Rectangle(map, drawOptions);
+      rectDrawer.enable();
+      toast('โหมดวาดกรอบ: ลากสี่เหลี่ยมบนแผนที่');
+    }
+    function enableEditMode(){
+      if(!currentRect){ toast('ยังไม่มีกรอบ'); return; }
+      if(editEnabled) return;
+      editToolbar = new L.EditToolbar.Edit(map, { featureGroup: drawnItems, selectedPathOptions:{ maintainColor:true } });
+      editToolbar.enable();
+      editEnabled = true;
+      $('btnEditToggle').setAttribute('aria-pressed','true');
+      $('btnEditToggleLabel').textContent = 'ออกโหมดแก้กรอบ';
+      toast('เข้าโหมดแก้กรอบ');
+    }
+    function disableEditMode(){
+      if(editToolbar){ editToolbar.disable(); editToolbar=null; }
+      editEnabled = false;
+      $('btnEditToggle').setAttribute('aria-pressed','false');
+      $('btnEditToggleLabel').textContent = 'เข้าโหมดแก้กรอบ';
+      toast('ออกโหมดแก้กรอบ');
+    }
+    function toggleEditMode(){
+      editEnabled ? disableEditMode() : enableEditMode();
+    }
+    function deleteRectangle(){
+      if(currentRect){ drawnItems.removeLayer(currentRect); currentRect=null; }
+      if(editEnabled) disableEditMode();
+      if(imageOverlay){ imageOverlayLayer.removeLayer(imageOverlay); imageOverlay=null; }
+      toast('ลบกรอบแล้ว');
+    }
+
+    // ====== Data for join ======
     let points=[], nextId=1;
     let subdistrictPolys=null, subdBBoxes=[];
     let thBorderPolys=null, thBBoxes=[];
     let addMode=false, tempAddMarker=null, selectedId=null;
 
-    // ====== Leaflet.draw EditToolbar (ซ่อนไว้ ใช้ด้วยโค้ด) ======
-    let drawEditToolbar = null;
-    const hiddenDrawControl = new L.Control.Draw({ draw:false, edit:{ featureGroup: editFeatureGroup } });
-    map.addControl(hiddenDrawControl);
-
-    // ====== freeze map while editing / adding points ======
-    let editOn = false;
-    function freezeMapInteractions(on){
-      if(on){
-        map.dragging.disable();
-        map.scrollWheelZoom.disable();
-        map.doubleClickZoom.disable();
-        map.boxZoom.disable();
-        map.keyboard.disable();
-      }else{
-        map.dragging.enable();
-        map.scrollWheelZoom.enable();
-        map.doubleClickZoom.enable();
-        map.boxZoom.enable();
-        map.keyboard.enable();
-      }
-    }
-    function startEditMode(){
-      if(editOn) return;
-      if(!drawEditToolbar){
-        drawEditToolbar = new L.EditToolbar.Edit(map, {
-          featureGroup: editFeatureGroup,
-          selectedPathOptions: { maintainColor:true }
-        });
-      }
-      drawEditToolbar.enable();              // ⭐ เปิดโหมดแก้ของ Leaflet.draw
-      const dp = map.getPane('drawPane');
-      dp.style.zIndex = 999;
-      dp.style.pointerEvents = 'auto';
-      freezeMapInteractions(true);
-      editOn = true;
-      toast('เข้าโหมดแก้กรอบ: ลากหูจับ/ย้ายกรอบ แล้วกด “ล็อคกรอบ”');
-    }
-    function stopEditMode(){
-      if(!editOn) return;
-      if(drawEditToolbar && drawEditToolbar.enabled()) drawEditToolbar.disable();
-      const dp = map.getPane('drawPane');
-      dp.style.zIndex = 700;
-      dp.style.pointerEvents = 'auto';
-      freezeMapInteractions(false);
-      editOn = false;
-    }
-
-    // ===== Table / Markers =====
     function renderTable(){
       const tb=$('pointsTableBody'); const editor=tb.querySelector('.row-editor');
       tb.innerHTML=''; tb.appendChild(editor);
@@ -529,19 +504,12 @@
     btnCancel.addEventListener('click', closeConfirm);
 
     function setAddMode(on){
-      addMode = !!on;
+      addMode=!!on;
       const btn=$('toggleAddModeBtn'), lbl=$('toggleAddModeLabel');
       btn.setAttribute('aria-pressed', addMode?'true':'false');
       lbl.textContent = addMode ? 'ปิดการเพิ่มจุด' : 'เพิ่มจุดจากแผนที่';
-
-      // ถ้าแก้กรอบอยู่ ให้ปิดก่อน (กันชนกัน)
-      if(addMode && editOn) stopEditMode();
-
-      // แช่แข็งแผนที่ตอนเพิ่มจุด เพื่อกดป๊อปอัปได้สะดวก
-      freezeMapInteractions(addMode);
-
       if(tempAddMarker){ map.removeLayer(tempAddMarker); tempAddMarker=null; }
-      if(addMode) toast('โหมดเพิ่ม: แตะแผนที่แล้วกด “ยืนยัน”');
+      if(addMode) toast('โหมดเพิ่ม: แตะแผนที่แล้ว “ยืนยัน”');
     }
     $('toggleAddModeBtn').addEventListener('click',()=>setAddMode(!addMode));
 
@@ -587,6 +555,27 @@
       tempAddMarker.openPopup();
     });
 
+    $('excelInput')?.addEventListener('change', async (ev)=>{
+      const file=ev.target.files && ev.target.files[0]; if(!file) return;
+      try{
+        const buf=await file.arrayBuffer();
+        const wb=XLSX.read(buf,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true});
+        const hasHeader=$('hasHeader').checked;
+        let added=0,skipped=0;
+        rows.forEach((r,i)=>{
+          if(!Array.isArray(r)||r.length<2) return;
+          if(hasHeader && i===0) return;
+          const lat=toNumberMaybe(r[0]), lon=toNumberMaybe(r[1]);
+          const before=points.length; addPointWithChecks(lat,lon);
+          if(points.length>before) added++; else skipped++;
+        });
+        $('excelPreview').textContent=`เพิ่มจากไฟล์: ${added.toLocaleString()} จุด (ข้าม ${skipped.toLocaleString()} จุด)`;
+        toast(`เพิ่มจุดจากไฟล์: ${added.toLocaleString()} จุด, ข้าม ${skipped.toLocaleString()} จุด`);
+      }catch(err){ console.error(err); toast('อ่านไฟล์ล้มเหลว: ' + (err?.message||err)); }
+    });
+
     // === Export helpers ===
     function exportCollectRows(){
       const rows=[['ลำดับ','lat','lon','ตำบล','อำเภอ','จังหวัด','ID']];
@@ -627,292 +616,17 @@
         return {
           type:'Feature',
           geometry:{type:'Point',coordinates:[lon,lat]},
-          properties:{ order:orderStr, lat, lon, 'ตำบล':subdistrict, 'อำเภอ':district, 'จังหวัด':province, id:idStr }
+          properties:{
+            order:orderStr, lat, lon,
+            'ตำบล':subdistrict, 'อำเภอ':district, 'จังหวัด':province,
+            id:idStr
+          }
         };
       }).filter(Boolean);
       download('points_joined.geojson', JSON.stringify({type:'FeatureCollection',features:feats}), 'application/geo+json');
     });
 
-    // ===== Image Overlay (no DistortableImage) =====
-    const imageState = {
-      pendingUrl: null,
-      pendingName: null,
-      overlays: [] // {id, name, layer, rect, visible, opacity, initialBounds}
-    };
-    let overlaySeq = 1;
-
-    function validateBounds(swLat, swLon, neLat, neLon){
-      let sLat = swLat, sLon = swLon, nLat = neLat, nLon = neLon;
-      if (!isFinite(sLat) || !isFinite(sLon) || !isFinite(nLat) || !isFinite(nLon)) return null;
-      if (sLat > nLat) [sLat, nLat] = [nLat, sLat];
-      if (sLon > nLon) [sLon, nLon] = [nLon, sLon];
-      return { sLat, sLon, nLat, nLon };
-    }
-
-    function applyPendingToInputsFromMapBounds(){
-      const b = map.getBounds();
-      $('swLat').value = b.getSouthWest().lat.toFixed(6);
-      $('swLon').value = b.getSouthWest().lng.toFixed(6);
-      $('neLat').value = b.getNorthEast().lat.toFixed(6);
-      $('neLon').value = b.getNorthEast().lng.toFixed(6);
-    }
-
-    // เปิดปุ่มวางเมื่อพร้อม
-    function inputsAreValid(){
-      const a=toNumberMaybe($('swLat').value), b=toNumberMaybe($('swLon').value),
-            c=toNumberMaybe($('neLat').value), d=toNumberMaybe($('neLon').value);
-      return isFinite(a) && isFinite(b) && isFinite(c) && isFinite(d);
-    }
-    function hasDrawnRect(){
-      // ถ้ามี layer ใน editFeatureGroup ถือว่ามีกรอบให้ใช้
-      return editFeatureGroup.getLayers().length > 0;
-    }
-    function updatePlaceBtn(){
-      const hasFile = !!imageState.pendingUrl;
-      $('placeImageBtn').disabled = !(hasFile && (inputsAreValid() || hasDrawnRect()));
-      $('useMapBoundsBtn').disabled = !hasFile;
-    }
-
-    function createOverlayItemRow(entry){
-      const row = document.createElement('div');
-      row.className = 'overlay-item';
-      row.dataset.id = entry.id;
-      row.innerHTML = `
-        <div class="name" title="${entry.name}">ภาพ: ${entry.name}</div>
-        <div class="row">
-          <label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vis="${entry.id}" ${entry.visible?'checked':''}> แสดง</label>
-          <label class="small" style="display:flex;align-items:center;gap:6px">โปร่งใส <input type="range" min="0" max="100" value="${Math.round(entry.opacity*100)}" data-op="${entry.id}"></label>
-          <button class="btn-icon" title="แก้กรอบ" data-edit-img="${entry.id}">✎</button>
-          <button class="btn-icon" title="ล็อคกรอบ" data-lock-img="${entry.id}">🔒</button>
-          <button class="btn-icon danger" title="ลบ" data-del-img="${entry.id}">✕</button>
-        </div>`;
-      $('overlayList').appendChild(row);
-
-      row.querySelector(`[data-vis="${entry.id}"]`).addEventListener('change', (e)=>{
-        entry.visible = e.target.checked;
-        if(entry.visible){ map.addLayer(entry.layer); map.addLayer(entry.rect); }
-        else { map.removeLayer(entry.layer); map.removeLayer(entry.rect); }
-      });
-      row.querySelector(`[data-op="${entry.id}"]`).addEventListener('input', (e)=>{
-        const v = Math.max(0, Math.min(100, parseInt(e.target.value||'60',10)))/100;
-        entry.opacity = v; entry.layer.setOpacity(v);
-        if(getLastOverlayEntry()?.id === entry.id){
-          $('imageOpacity').value = Math.round(v*100);
-          $('imageOpacityLabel').textContent = Math.round(v*100) + '%';
-        }
-      });
-      row.querySelector(`[data-del-img="${entry.id}"]`).addEventListener('click',()=>{
-        map.removeLayer(entry.layer);
-        map.removeLayer(entry.rect);
-        overlayCtl.removeLayer(entry.layer);
-        row.remove();
-        imageState.overlays = imageState.overlays.filter(o=>o.id!==entry.id);
-        toast('ลบภาพแล้ว');
-      });
-
-      // ปุ่มเฉพาะภาพนี้
-      row.querySelector(`[data-edit-img="${entry.id}"]`).addEventListener('click', ()=>{
-        startEditMode();
-        map.fitBounds(entry.rect.getBounds(), {maxZoom: map.getZoom()});
-        toast('แก้กรอบภาพนี้อยู่');
-      });
-      row.querySelector(`[data-lock-img="${entry.id}"]`).addEventListener('click', ()=>{
-        const b = entry.rect.getBounds();
-        entry.layer.setBounds(b);
-        stopEditMode();
-        toast('ล็อคกรอบภาพนี้แล้ว');
-      });
-    }
-
-    function getLastOverlayEntry(){ return imageState.overlays[imageState.overlays.length-1] || null; }
-    function enableGlobalImageControls(entry){
-      const has = !!entry;
-      $('editFrameBtn').disabled = !has;
-      $('lockFrameBtn').disabled = !has;
-      $('resetFrameBtn').disabled = !has;
-      $('imageOpacity').disabled = !has;
-      $('imageVisibleChk').disabled = !has;
-      if(has){
-        $('imageOpacity').value = Math.round((entry.opacity ?? 0.6)*100);
-        $('imageOpacityLabel').textContent = Math.round((entry.opacity ?? 0.6)*100) + '%';
-        $('imageVisibleChk').checked = !!entry.visible;
-      }else{
-        $('imageOpacityLabel').textContent = '60%';
-      }
-    }
-
-    // วางภาพ: รองรับอินพุต/ใช้ bounds ของแผนที่/หรือกรอบที่วาด
-    function placePendingImage(){
-      if(!imageState.pendingUrl){ toast('ยังไม่ได้เลือกไฟล์ภาพ'); return; }
-
-      const swLat=toNumberMaybe($('swLat').value), swLon=toNumberMaybe($('swLon').value),
-            neLat=toNumberMaybe($('neLat').value), neLon=toNumberMaybe($('neLon').value);
-
-      // 1) จากอินพุต
-      let bounds = null;
-      const fixed = validateBounds(swLat, swLon, neLat, neLon);
-      if (fixed){
-        bounds = L.latLngBounds([fixed.sLat, fixed.sLon], [fixed.nLat, fixed.nLon]);
-      }
-
-      // 2) ถ้าอินพุตไม่ครบ ให้ใช้กรอบที่วาดล่าสุด
-      if (!bounds){
-        const layers = editFeatureGroup.getLayers();
-        const candidate = layers.length ? layers[layers.length - 1] : null;
-        if (candidate && candidate.getBounds) {
-          bounds = candidate.getBounds();
-          // sync inputs
-          $('swLat').value = bounds.getSouthWest().lat.toFixed(6);
-          $('swLon').value = bounds.getSouthWest().lng.toFixed(6);
-          $('neLat').value = bounds.getNorthEast().lat.toFixed(6);
-          $('neLon').value = bounds.getNorthEast().lng.toFixed(6);
-        }
-      }
-
-      if (!bounds){
-        toast('ยังไม่มีกรอบพิกัด: กรุณากรอกพิกัดหรือวาดกรอบ');
-        return;
-      }
-
-      const op = (parseInt($('imageOpacity').value,10)||60)/100;
-
-      // รูป
-      const layer = L.imageOverlay(imageState.pendingUrl, bounds, {pane:'imagePane', opacity: op}).addTo(map);
-
-      // กรอบสี่เหลี่ยม + กันอีเวนต์ไหลไป map
-      const rect = L.rectangle(bounds, {
-        pane:'drawPane', color:'#1e90ff', weight:2, fill:false,
-        interactive:true, bubblingMouseEvents:false
-      }).addTo(editFeatureGroup);
-
-      rect.on('add', () => {
-        if (rect._path) {
-          L.DomEvent.on(rect._path, 'mousedown', L.DomEvent.stopPropagation);
-          L.DomEvent.on(rect._path, 'touchstart', L.DomEvent.stopPropagation);
-          L.DomEvent.on(rect._path, 'click', L.DomEvent.stopPropagation);
-          L.DomEvent.on(rect._path, 'dblclick', L.DomEvent.stopPropagation);
-          L.DomEvent.disableClickPropagation(rect._path);
-        }
-      });
-
-      const name = imageState.pendingName || ('overlay_'+overlaySeq++);
-      overlayCtl.addOverlay(layer, 'ภาพ: '+name);
-
-      const entry = { id: Date.now()+Math.random(), name, layer, rect, visible:true, opacity: op, initialBounds: bounds };
-      imageState.overlays.push(entry);
-      createOverlayItemRow(entry);
-      enableGlobalImageControls(entry);
-
-      map.fitBounds(bounds, {animate:true, padding:[20,20]});
-      toast('วางภาพแล้ว: ใช้ “เข้าโหมดแก้กรอบ” เพื่อปรับได้');
-      updatePlaceBtn();
-    }
-
-    // Global controls (ภาพล่าสุด)
-    $('imageOpacity').addEventListener('input', ()=>{
-      const v = parseInt($('imageOpacity').value||'60',10);
-      $('imageOpacityLabel').textContent = v+'%';
-      const last = getLastOverlayEntry();
-      if(last){
-        last.opacity = v/100;
-        last.layer.setOpacity(last.opacity);
-        const rowRange = document.querySelector(`[data-op="${last.id}"]`);
-        if(rowRange) rowRange.value = v;
-      }
-    });
-    $('imageVisibleChk').addEventListener('change', (e)=>{
-      const last = getLastOverlayEntry();
-      if(!last) return;
-      last.visible = e.target.checked;
-      if(last.visible){ map.addLayer(last.layer); map.addLayer(last.rect); }
-      else { map.removeLayer(last.layer); map.removeLayer(last.rect); }
-      const rowVis = document.querySelector(`[data-vis="${last.id}"]`);
-      if(rowVis) rowVis.checked = last.visible;
-    });
-    $('editFrameBtn').addEventListener('click', startEditMode);
-    $('lockFrameBtn').addEventListener('click', ()=>{
-      const last = getLastOverlayEntry(); if(!last){ toast('ยังไม่มีภาพบนแผนที่'); return; }
-      const b = last.rect.getBounds();
-      last.layer.setBounds(b);
-      $('swLat').value = b.getSouthWest().lat.toFixed(6);
-      $('swLon').value = b.getSouthWest().lng.toFixed(6);
-      $('neLat').value = b.getNorthEast().lat.toFixed(6);
-      $('neLon').value = b.getNorthEast().lng.toFixed(6);
-      stopEditMode();                         // ⭐ ปิดโหมดแก้ของ Leaflet.draw
-      toast('ล็อคกรอบแล้ว');
-    });
-    $('resetFrameBtn').addEventListener('click', ()=>{
-      const last = getLastOverlayEntry(); if(!last){ toast('ยังไม่มีภาพบนแผนที่'); return; }
-      last.rect.setBounds(last.initialBounds);
-      last.layer.setBounds(last.initialBounds);
-      $('swLat').value = last.initialBounds.getSouthWest().lat.toFixed(6);
-      $('swLon').value = last.initialBounds.getSouthWest().lng.toFixed(6);
-      $('neLat').value = last.initialBounds.getNorthEast().lat.toFixed(6);
-      $('neLon').value = last.initialBounds.getNorthEast().lng.toFixed(6);
-      toast('รีเซ็ตกรอบเป็นค่าเริ่มต้นแล้ว');
-    });
-
-    // ===== Rectangle draw (bounds picker) =====
-    function startDrawRectangle(){
-      if(!L || !L.Draw || !L.Draw.Rectangle){ toast('ไม่พบปลั๊กอิน Leaflet.draw'); return; }
-      const drawer = new L.Draw.Rectangle(map, {shapeOptions:{color:'#1e90ff', weight:2, fill:false, pane:'drawPane'}});
-      drawer.enable();
-      const onCreated = function(e){
-        if(e.layerType !== 'rectangle'){ return; }
-        map.off(L.Draw.Event.CREATED, onCreated);
-        const rect = e.layer.addTo(editFeatureGroup);
-
-        // กัน propagation
-        rect.on('add', () => {
-          if (rect._path) {
-            L.DomEvent.on(rect._path, 'mousedown', L.DomEvent.stopPropagation);
-            L.DomEvent.on(rect._path, 'touchstart', L.DomEvent.stopPropagation);
-            L.DomEvent.on(rect._path, 'click', L.DomEvent.stopPropagation);
-            L.DomEvent.on(rect._path, 'dblclick', L.DomEvent.stopPropagation);
-            L.DomEvent.disableClickPropagation(rect._path);
-          }
-        });
-
-        const b = rect.getBounds();
-        $('swLat').value = b.getSouthWest().lat.toFixed(6);
-        $('swLon').value = b.getSouthWest().lng.toFixed(6);
-        $('neLat').value = b.getNorthEast().lat.toFixed(6);
-        $('neLon').value = b.getNorthEast().lng.toFixed(6);
-        toast('ได้กรอบพิกัดจากการวาดแล้ว');
-        updatePlaceBtn();
-      };
-      map.on(L.Draw.Event.CREATED, onCreated);
-    }
-    $('drawRectBtn').addEventListener('click', startDrawRectangle);
-
-    // ===== File select & helpers =====
-    $('imageFileInput').addEventListener('change', (ev)=>{
-      const file = ev.target.files && ev.target.files[0];
-      if(!file){
-        imageState.pendingUrl=null; imageState.pendingName=null;
-        $('imagePendingName').textContent='';
-        updatePlaceBtn();
-        return;
-      }
-      const url = URL.createObjectURL(file);
-      imageState.pendingUrl = url; imageState.pendingName = file.name;
-      $('imagePendingName').textContent = 'ไฟล์ที่เลือก: '+file.name;
-      applyPendingToInputsFromMapBounds();
-      updatePlaceBtn();
-    });
-    $('useMapBoundsBtn').addEventListener('click', ()=>{
-      applyPendingToInputsFromMapBounds();
-      updatePlaceBtn();
-    });
-    $('placeImageBtn').addEventListener('click', placePendingImage);
-
-    // hook inputs
-    ['swLat','swLon','neLat','neLon'].forEach(id=>{
-      $(id).addEventListener('input', updatePlaceBtn);
-      $(id).addEventListener('change', updatePlaceBtn);
-    });
-
-    // ===== Load boundaries =====
+    // === Load borders ===
     async function loadSubdistricts(path=SUBD_PATH){
       const res=await fetch(path,{cache:'no-store'}); if(!res.ok) throw new Error('subdistricts HTTP '+res.status);
       const gj=await res.json();
@@ -930,23 +644,99 @@
     }
 
     $('uploadSection')?.addEventListener('toggle',()=>setTimeout(()=>map.invalidateSize(),120));
-    $('imageOverlaySection')?.addEventListener('toggle',()=>setTimeout(()=>map.invalidateSize(),120));
+    $('imgSection')?.addEventListener('toggle',()=>setTimeout(()=>map.invalidateSize(),120));
     window.addEventListener('resize',()=>setTimeout(()=>map.invalidateSize(),80));
 
-    (async()=>{ 
-      try{ 
-        await loadSubdistricts(); 
-        await loadThailandBorder(); 
-        toast('โหลดขอบเขตสำเร็จ'); 
-        map.invalidateSize(); 
-      }catch(err){ 
-        console.error(err); 
-        toast('โหลดขอบเขตไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson / th_boundary.geojson'); 
-      } 
-    })();
+    (async()=>{ try{ await loadSubdistricts(); await loadThailandBorder(); toast('โหลดขอบเขตสำเร็จ'); map.invalidateSize(); }catch(err){ console.error(err); toast('โหลดขอบเขตไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson / th_boundary.geojson'); } })();
 
-    // เริ่มต้นอัปเดตปุ่ม
-    updatePlaceBtn();
+    // ====== Image Overlay logic (custom buttons) ======
+    let imageBlobUrl=null;
+    let imageOverlay=null;
+
+    function getOpacity01(){ const v=parseInt($('imgOpacity').value||'35',10); return Math.min(1,Math.max(0,v/100)); }
+    function syncOpacityLabel(){ $('imgOpacityVal').textContent = `${$('imgOpacity').value}%`; }
+    syncOpacityLabel();
+
+    function getCurrentRectangle(){
+      let rect=null;
+      drawnItems.eachLayer(l=>{ if(l instanceof L.Rectangle) rect=l; });
+      return rect;
+    }
+
+    function placeOrUpdateOverlay(){
+      currentRect = getCurrentRectangle();
+      if(!imageBlobUrl){ toast('โปรดเลือกไฟล์รูปก่อน'); return; }
+      if(!currentRect){ toast('โปรดวาดกรอบสี่เหลี่ยมบนแผนที่ก่อน'); return; }
+      const b=currentRect.getBounds();
+      const opt={opacity:getOpacity01(), pane:'imagePane', interactive:false};
+      if(!imageOverlay){
+        imageOverlay = L.imageOverlay(imageBlobUrl, b, opt);
+        imageOverlay.addTo(imageOverlayLayer);
+      }else{
+        imageOverlay.setUrl(imageBlobUrl);
+        imageOverlay.setBounds(b);
+        imageOverlay.setOpacity(opt.opacity);
+      }
+    }
+
+    // file input -> object URL
+    $('imgInput').addEventListener('change', (ev)=>{
+      const f=ev.target.files && ev.target.files[0]; if(!f) return;
+      if(imageBlobUrl) URL.revokeObjectURL(imageBlobUrl);
+      imageBlobUrl = URL.createObjectURL(f);
+      placeOrUpdateOverlay();
+      toast('โหลดรูปแล้ว — วาด/แก้กรอบเพื่อจัดตำแหน่ง');
+    });
+
+    // control buttons
+    $('btnDrawRect').addEventListener('click', enableDrawRectangle);
+    $('btnDeleteRect').addEventListener('click', deleteRectangle);
+    $('useRectBtn').addEventListener('click', placeOrUpdateOverlay);
+    $('clearImgBtn').addEventListener('click', ()=>{
+      if(imageOverlay){ imageOverlayLayer.removeLayer(imageOverlay); imageOverlay=null; }
+      if(imageBlobUrl){ URL.revokeObjectURL(imageBlobUrl); imageBlobUrl=null; }
+      toast('ลบรูปออกจากแผนที่แล้ว');
+    });
+
+    // Toggle edit mode
+    $('btnEditToggle').addEventListener('click', toggleEditMode);
+
+    // opacity slider
+    $('imgOpacity').addEventListener('input', ()=>{
+      syncOpacityLabel();
+      if(imageOverlay) imageOverlay.setOpacity(getOpacity01());
+    });
+
+    // Draw events
+    map.on(L.Draw.Event.CREATED, function (e) {
+      if (e.layerType === 'rectangle') {
+        if (currentRect) drawnItems.removeLayer(currentRect);
+        currentRect = e.layer;
+        drawnItems.addLayer(currentRect);
+        if(rectDrawer) rectDrawer.disable();
+        placeOrUpdateOverlay();
+      }
+    });
+
+    // Live update ระหว่างแก้กรอบ (real-time)
+    function onRectLiveEdit(){
+      if(!currentRect){ currentRect = getCurrentRectangle(); }
+      placeOrUpdateOverlay();
+    }
+    map.on('draw:editmove', onRectLiveEdit);
+    map.on('draw:editresize', onRectLiveEdit);
+    map.on('draw:editvertex', onRectLiveEdit);
+
+    map.on('draw:deleted', function(e){
+      let rectDeleted=false;
+      e.layers.eachLayer(l=>{ if(currentRect && l._leaflet_id===currentRect._leaflet_id) rectDeleted=true; });
+      if(rectDeleted){ currentRect=null; }
+      if(rectDeleted && imageOverlay){
+        imageOverlayLayer.removeLayer(imageOverlay);
+        imageOverlay=null;
+      }
+      if(editEnabled) disableEditMode();
+    });
   });
   </script>
 </body>
