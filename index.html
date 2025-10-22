@@ -16,6 +16,10 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
+  <!-- Leaflet.DistortableImage (สำหรับบิด/หมุน/เอียง 4 มุม) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-distortableimage@0.13.6/dist/leaflet.distortableimage.css"/>
+  <script src="https://unpkg.com/leaflet-distortableimage@0.13.6/dist/leaflet.distortableimage.js"></script>
+
   <!-- Turf.js -->
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
@@ -179,9 +183,13 @@
       <details class="collapser" id="imgSection">
         <summary>แนบรูปบนแผนที่ (Image Overlay)</summary>
         <div class="collapser-body">
-          <div class="small">ขั้นตอน: เลือกรูป → <b>วาดกรอบ</b> แล้วลากบนแผนที่ → กด <b>แก้กรอบ</b> (Toggle) เพื่อขยับ/ยืด — รูปปรับตามแบบเรียลไทม์ และยืด-หดได้อิสระ (ไม่ล็อกสัดส่วน)</div>
+          <div class="small">
+            ขั้นตอน: เลือกรูป → <b>วาดกรอบ</b> แล้วลากสี่เหลี่ยมบนแผนที่ → เลือก <b>โหมดรูป</b> → กด <b>วางรูป</b><br>
+            • โหมด <b>สี่เหลี่ยม</b> = รูปยืด-หดตามกรอบ (ไม่ล็อกสัดส่วน) และเลื่อนไปกับกรอบ<br>
+            • โหมด <b>บิด/หมุน 4 มุม</b> = จับมุมรูปบิด/หมุน/เอียงได้อิสระ (ใช้ DistortableImage)
+          </div>
 
-          <!-- แถว 1: วาดกรอบ, ลบกรอบ, วางรูป, ลบรูป -->
+          <!-- แถว 1: เลือกรูป + วาด/ลบกรอบ + วาง/ลบรูป -->
           <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <input id="imgInput" type="file" accept="image/*" title="เลือกไฟล์รูป"/>
             <button id="btnDrawRect" class="btn btn-outline" title="วาดกรอบใหม่">วาดกรอบ</button>
@@ -190,14 +198,32 @@
             <button id="clearImgBtn" class="btn btn-danger" title="ลบรูปจากแผนที่">ลบรูป</button>
           </div>
 
-          <!-- แถว 2: Toggle เข้า/ออกโหมดแก้กรอบ -->
+          <!-- แถว 2: เลือกโหมดรูป -->
+          <div style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+            <label class="small" style="display:flex;align-items:center;gap:8px">
+              <input type="radio" name="overlayMode" value="rect" id="modeRect" checked>
+              โหมดสี่เหลี่ยม (Leaflet.draw)
+            </label>
+            <label class="small" style="display:flex;align-items:center;gap:8px">
+              <input type="radio" name="overlayMode" value="distort" id="modeDistort">
+              โหมดบิด/หมุน 4 มุม (DistortableImage)
+            </label>
+          </div>
+
+          <!-- แถว 3: Toggle เข้า/ออกโหมดแก้กรอบ (Rect) + โหมดบิด (Distort) -->
           <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <button id="btnEditToggle" class="toggle" aria-pressed="false" title="เข้า/ออกโหมดแก้กรอบ">
+            <button id="btnEditToggle" class="toggle" aria-pressed="false" title="เข้า/ออกโหมดแก้กรอบ (สี่เหลี่ยม)">
               <span class="track"><span class="knob"></span></span>
-              <span class="label" id="btnEditToggleLabel">เข้าโหมดแก้กรอบ</span>
+              <span class="label" id="btnEditToggleLabel">เข้าโหมดแก้กรอบ (Rect)</span>
+            </button>
+
+            <button id="btnDistortToggle" class="toggle" aria-pressed="false" title="เข้า/ออกโหมดบิดรูป (4 มุม)">
+              <span class="track"><span class="knob"></span></span>
+              <span class="label" id="btnDistortToggleLabel">เข้าโหมดบิด (4 มุม)</span>
             </button>
           </div>
 
+          <!-- แถว 4: Opacity -->
           <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
             <label class="small" for="imgOpacity">โปร่งใส (%)</label>
             <input id="imgOpacity" type="range" min="0" max="100" value="35" />
@@ -301,15 +327,15 @@
       editToolbar.enable();
       editEnabled = true;
       $('btnEditToggle').setAttribute('aria-pressed','true');
-      $('btnEditToggleLabel').textContent = 'ออกโหมดแก้กรอบ';
-      toast('เข้าโหมดแก้กรอบ');
+      $('btnEditToggleLabel').textContent = 'ออกโหมดแก้กรอบ (Rect)';
+      toast('เข้าโหมดแก้กรอบ (Rect)');
     }
     function disableEditMode(){
       if(editToolbar){ editToolbar.disable(); editToolbar=null; }
       editEnabled = false;
       $('btnEditToggle').setAttribute('aria-pressed','false');
-      $('btnEditToggleLabel').textContent = 'เข้าโหมดแก้กรอบ';
-      toast('ออกโหมดแก้กรอบ');
+      $('btnEditToggleLabel').textContent = 'เข้าโหมดแก้กรอบ (Rect)';
+      toast('ออกโหมดแก้กรอบ (Rect)');
     }
     function toggleEditMode(){
       editEnabled ? disableEditMode() : enableEditMode();
@@ -317,7 +343,7 @@
     function deleteRectangle(){
       if(currentRect){ drawnItems.removeLayer(currentRect); currentRect=null; }
       if(editEnabled) disableEditMode();
-      if(imageOverlay){ imageOverlayLayer.removeLayer(imageOverlay); imageOverlay=null; }
+      // ไม่ลบรูปอัตโนมัติ เพื่อให้ผู้ใช้ยังแก้ 4 มุมต่อได้ถ้าอยู่ในโหมด distort
       toast('ลบกรอบแล้ว');
     }
 
@@ -649,9 +675,11 @@
 
     (async()=>{ try{ await loadSubdistricts(); await loadThailandBorder(); toast('โหลดขอบเขตสำเร็จ'); map.invalidateSize(); }catch(err){ console.error(err); toast('โหลดขอบเขตไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson / th_boundary.geojson'); } })();
 
-    // ====== Image Overlay logic (custom buttons) ======
+    // ====== Image Overlay logic (สองโหมด) ======
     let imageBlobUrl=null;
-    let imageOverlay=null;
+    let imageOverlayRect=null;          // L.imageOverlay (โหมดสี่เหลี่ยม)
+    let imageOverlayDistort=null;       // L.DistortableImageOverlay (โหมด 4 มุม)
+    let distortEditing=false;           // สถานะแก้ไขของ DistortableImage
 
     function getOpacity01(){ const v=parseInt($('imgOpacity').value||'35',10); return Math.min(1,Math.max(0,v/100)); }
     function syncOpacityLabel(){ $('imgOpacityVal').textContent = `${$('imgOpacity').value}%`; }
@@ -663,19 +691,69 @@
       return rect;
     }
 
+    function currentOverlayMode(){
+      return (document.querySelector('input[name="overlayMode"]:checked')?.value)||'rect';
+    }
+
+    function removeRectOverlayIfAny(){
+      if(imageOverlayRect){ imageOverlayLayer.removeLayer(imageOverlayRect); imageOverlayRect=null; }
+    }
+    function removeDistortOverlayIfAny(){
+      if(imageOverlayDistort){
+        try{ imageOverlayDistort.editing && imageOverlayDistort.editing.disable && imageOverlayDistort.editing.disable(); }catch(e){}
+        imageOverlayLayer.removeLayer(imageOverlayDistort);
+        imageOverlayDistort=null;
+        $('btnDistortToggle').setAttribute('aria-pressed','false');
+        $('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
+        distortEditing=false;
+      }
+    }
+
     function placeOrUpdateOverlay(){
+      const mode=currentOverlayMode();
       currentRect = getCurrentRectangle();
       if(!imageBlobUrl){ toast('โปรดเลือกไฟล์รูปก่อน'); return; }
       if(!currentRect){ toast('โปรดวาดกรอบสี่เหลี่ยมบนแผนที่ก่อน'); return; }
+
       const b=currentRect.getBounds();
-      const opt={opacity:getOpacity01(), pane:'imagePane', interactive:false};
-      if(!imageOverlay){
-        imageOverlay = L.imageOverlay(imageBlobUrl, b, opt);
-        imageOverlay.addTo(imageOverlayLayer);
+      const opacity=getOpacity01();
+
+      if(mode==='rect'){
+        // ใช้ L.imageOverlay (ยืด-หดตามกรอบแบบสี่เหลี่ยม)
+        removeDistortOverlayIfAny();
+        const opt={opacity, pane:'imagePane', interactive:false};
+        if(!imageOverlayRect){
+          imageOverlayRect = L.imageOverlay(imageBlobUrl, b, opt);
+          imageOverlayLayer.addLayer(imageOverlayRect);
+        }else{
+          imageOverlayRect.setUrl(imageBlobUrl);
+          imageOverlayRect.setBounds(b);
+          imageOverlayRect.setOpacity(opacity);
+        }
+        toast('วาง/อัปเดตรูป (โหมดสี่เหลี่ยม) สำเร็จ');
+
       }else{
-        imageOverlay.setUrl(imageBlobUrl);
-        imageOverlay.setBounds(b);
-        imageOverlay.setOpacity(opt.opacity);
+        // ใช้ DistortableImage (บิด/หมุน/เอียง 4 มุม)
+        if(typeof L.DistortableImageOverlay!=='function'){
+          toast('ปลั๊กอิน DistortableImage ไม่พร้อมใช้งาน'); return;
+        }
+        removeRectOverlayIfAny();
+
+        const nw=b.getNorthWest(), ne=b.getNorthEast(), se=b.getSouthEast(), sw=b.getSouthWest();
+        const corners=[nw, ne, se, sw]; // ลำดับ: NW, NE, SE, SW
+
+        // อัปเดตแทนที่จะสร้างใหม่ (เพื่อความชัวร์ ใช้วิธี recreate ทุกครั้ง)
+        removeDistortOverlayIfAny();
+
+        imageOverlayDistort = L.distortableImageOverlay(imageBlobUrl, {
+          corners,
+          opacity,
+          pane:'imagePane',
+          suppressToolbar:true,  // ซ่อนทูลบาร์
+          editable:true          // ให้แก้ไขได้
+        });
+        imageOverlayLayer.addLayer(imageOverlayDistort);
+        toast('วาง/อัปเดตรูป (โหมดบิด 4 มุม) สำเร็จ');
       }
     }
 
@@ -685,7 +763,15 @@
       if(imageBlobUrl) URL.revokeObjectURL(imageBlobUrl);
       imageBlobUrl = URL.createObjectURL(f);
       placeOrUpdateOverlay();
-      toast('โหลดรูปแล้ว — วาด/แก้กรอบเพื่อจัดตำแหน่ง');
+      toast('โหลดรูปแล้ว — วาด/แก้กรอบและ “วางรูป”');
+    });
+
+    // โหมดรูปสลับ -> แนะนำให้ "วางรูป" ใหม่ให้สอดคล้องโหมด
+    document.querySelectorAll('input[name="overlayMode"]').forEach(r=>{
+      r.addEventListener('change', ()=>{
+        // ไม่วางให้อัตโนมัติ เพื่อเลี่ยงสับสน – ให้ผู้ใช้กดวางรูปเอง
+        toast('เปลี่ยนโหมดรูปแล้ว: กด “วางรูป” เพื่ออัปเดต');
+      });
     });
 
     // control buttons
@@ -693,35 +779,70 @@
     $('btnDeleteRect').addEventListener('click', deleteRectangle);
     $('useRectBtn').addEventListener('click', placeOrUpdateOverlay);
     $('clearImgBtn').addEventListener('click', ()=>{
-      if(imageOverlay){ imageOverlayLayer.removeLayer(imageOverlay); imageOverlay=null; }
+      removeRectOverlayIfAny();
+      removeDistortOverlayIfAny();
       if(imageBlobUrl){ URL.revokeObjectURL(imageBlobUrl); imageBlobUrl=null; }
       toast('ลบรูปออกจากแผนที่แล้ว');
     });
 
-    // Toggle edit mode
-    $('btnEditToggle').addEventListener('click', toggleEditMode);
+    // Toggle edit mode (Rect)
+    $('btnEditToggle').addEventListener('click', ()=>{
+      if(currentOverlayMode()==='distort'){
+        toast('ปุ่มนี้ใช้กับโหมดสี่เหลี่ยมเท่านั้น'); return;
+        }
+      toggleEditMode();
+    });
+
+    // Toggle edit mode (Distort)
+    $('btnDistortToggle').addEventListener('click', ()=>{
+      if(currentOverlayMode()!=='distort'){
+        toast('ปุ่มนี้ใช้กับโหมดบิด 4 มุมเท่านั้น'); return;
+      }
+      if(!imageOverlayDistort){ toast('ยังไม่มีรูปแบบบิด 4 มุม – กด “วางรูป” ก่อน'); return; }
+      try{
+        if(!distortEditing){
+          imageOverlayDistort.editing && imageOverlayDistort.editing.enable && imageOverlayDistort.editing.enable();
+          $('btnDistortToggle').setAttribute('aria-pressed','true');
+          $('btnDistortToggleLabel').textContent='ออกโหมดบิด (4 มุม)';
+          toast('เข้าโหมดบิด (ลากจุดมุม/ขอบได้)');
+          distortEditing=true;
+        }else{
+          imageOverlayDistort.editing && imageOverlayDistort.editing.disable && imageOverlayDistort.editing.disable();
+          $('btnDistortToggle').setAttribute('aria-pressed','false');
+          $('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
+          toast('ออกโหมดบิด');
+          distortEditing=false;
+        }
+      }catch(err){
+        console.error(err); toast('ไม่สามารถสลับโหมดบิดได้');
+      }
+    });
 
     // opacity slider
     $('imgOpacity').addEventListener('input', ()=>{
       syncOpacityLabel();
-      if(imageOverlay) imageOverlay.setOpacity(getOpacity01());
+      const op=getOpacity01();
+      if(imageOverlayRect) imageOverlayRect.setOpacity(op);
+      if(imageOverlayDistort && imageOverlayDistort.setOpacity) imageOverlayDistort.setOpacity(op);
     });
 
-    // Draw events
+    // Draw events (ใช้กับโหมดสี่เหลี่ยม: live update เฉพาะ overlay แบบ Rect)
     map.on(L.Draw.Event.CREATED, function (e) {
       if (e.layerType === 'rectangle') {
         if (currentRect) drawnItems.removeLayer(currentRect);
         currentRect = e.layer;
         drawnItems.addLayer(currentRect);
         if(rectDrawer) rectDrawer.disable();
-        placeOrUpdateOverlay();
+        // ไม่วางอัตโนมัติ ให้ผู้ใช้กด "วางรูป" เพื่อเลือกโหมดด้วย
       }
     });
 
-    // Live update ระหว่างแก้กรอบ (real-time)
     function onRectLiveEdit(){
       if(!currentRect){ currentRect = getCurrentRectangle(); }
-      placeOrUpdateOverlay();
+      // อัปเดตแบบเรียลไทม์เฉพาะ overlay แบบ Rect
+      if(imageOverlayRect){
+        const b=currentRect?.getBounds?.(); if(b){ imageOverlayRect.setBounds(b); }
+      }
     }
     map.on('draw:editmove', onRectLiveEdit);
     map.on('draw:editresize', onRectLiveEdit);
@@ -731,12 +852,12 @@
       let rectDeleted=false;
       e.layers.eachLayer(l=>{ if(currentRect && l._leaflet_id===currentRect._leaflet_id) rectDeleted=true; });
       if(rectDeleted){ currentRect=null; }
-      if(rectDeleted && imageOverlay){
-        imageOverlayLayer.removeLayer(imageOverlay);
-        imageOverlay=null;
-      }
       if(editEnabled) disableEditMode();
     });
+
+    // ====== Points I/O ต่อจากเดิม ======
+    // (คงโค้ดส่วน Export/Join/Upload ตามเดิมด้านบนแล้ว)
+
   });
   </script>
 </body>
