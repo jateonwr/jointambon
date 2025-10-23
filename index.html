@@ -805,7 +805,7 @@
     if(!cornerMoveEditing){
       if(!distortEditing){ buildCornerMarkers(coords); updateImageFrame(coords); distortEditing=true; $('btnDistortToggle').setAttribute('aria-pressed','true'); $('btnDistortToggleLabel').textContent='ออกโหมดบิด (4 มุม)'; }
       if(moveEditing){ destroyCenterMoveMarker(); moveEditing=false; $('btnMoveImgToggle').setAttribute('aria-pressed','false'); $('btnMoveImgLabel').textContent='เลื่อนรูป'; }
-      cornerMoveEditing=true; $('btnCornerMoveToggle').setAttribute('aria-pressed','true'); $('btnCornerMoveLabel').textContent='ออกโหมดเลื่อนจากมุม');
+      cornerMoveEditing=true; $('btnCornerMoveToggle').setAttribute('aria-pressed','true'); $('btnCornerMoveLabel').textContent='ออกโหมดเลื่อนจากมุม';
       toast('โหมดเลื่อนจากมุม: ลาก “มุม” ใดก็ได้เพื่อขยับทั้งภาพ');
     }else{
       cornerMoveEditing=false; $('btnCornerMoveToggle').setAttribute('aria-pressed','false'); $('btnCornerMoveLabel').textContent='เลื่อนจากมุม';
