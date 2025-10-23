@@ -12,10 +12,6 @@
   <link  href="https://cdn.jsdelivr.net/npm/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 
-  <!-- Mapbox GL Draw -->
-  <link  href="https://unpkg.com/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.css" rel="stylesheet">
-  <script src="https://unpkg.com/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.js"></script>
-
   <!-- Turf.js -->
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
@@ -211,22 +207,13 @@
         <summary>แนบรูปบนแผนที่ (Image Overlay)</summary>
         <div class="collapser-body">
           <div class="small">
-            ขั้นตอน: เลือกรูป → <b>วาดกรอบ</b> หรือ <b>ลากครอบ</b> → กด <b>วางรูป</b><br>
-            • <b>เลื่อนรูป</b> = หมุดกลาง / <b>เลื่อนจากมุม</b> = ปรับสัดส่วน (ตรึงมุมตรงข้าม ไม่บิด)<br>
-            • <b>บิด 4 มุม</b> = ลากหมุดมุมเพื่อปรับรูปทรง<br>
-            • <b>คีย์ลัด</b>: กด <b>Shift</b> ระหว่างลากมุม = ย้ายทั้งภาพ, กด <b>X</b> = ล็อกแกน X, กด <b>Y</b> = ล็อกแกน Y
+            ขั้นตอน: เลือกรูป → <b>ลากครอบ</b> → กด <b>วางรูป</b><br>
+            • <b>เลื่อนรูป</b> = หมุดกลาง (กด X/Y เพื่อล็อกแกน)<br>
+            • <b>เลื่อนจากมุม</b> = ปรับสัดส่วนโดยตรึงมุมตรงข้าม (ไม่บิด) — กด <b>Shift</b> ตอนเริ่มลาก = ย้ายทั้งภาพ<br>
+            • <b>บิด 4 มุม</b> = ลากหมุดมุมเพื่อบิดอิสระ
           </div>
 
-          <!-- แถว 1 -->
-          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <input id="imgInput" type="file" accept="image/*" title="เลือกไฟล์รูป"/>
-            <button id="btnDrawRect" class="btn btn-outline" title="วาดกรอบ">วาดกรอบ</button>
-            <button id="btnDeleteRect" class="btn btn-danger" title="ลบกรอบ">ลบกรอบ</button>
-            <button id="useRectBtn" class="btn" title="วาง/อัปเดตรูปตามกรอบ">วางรูป</button>
-            <button id="clearImgBtn" class="btn btn-danger" title="ลบรูป">ลบรูป</button>
-          </div>
-
-          <!-- แถว 2: ควบคุมรูป -->
+          <!-- แถว: ควบคุมรูป -->
           <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <button id="btnBoxDrag" class="btn btn-outline" title="วาดกรอบแบบลากครอบ (rubber box)">ลากครอบ</button>
             <button id="btnMoveImgToggle" class="toggle" aria-pressed="false" title="เลื่อนรูป (หมุดกลาง)">
@@ -243,7 +230,13 @@
             </button>
           </div>
 
-          <!-- แถว 3: Opacity -->
+          <!-- แถว: ไฟล์+Opacity -->
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <input id="imgInput" type="file" accept="image/*" title="เลือกไฟล์รูป"/>
+            <button id="useRectBtn" class="btn" title="วาง/อัปเดตรูปตามกรอบ">วางรูป</button>
+            <button id="clearImgBtn" class="btn btn-danger" title="ลบรูป">ลบรูป</button>
+          </div>
+
           <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
             <label class="small" for="imgOpacity">โปร่งใส (%)</label>
             <input id="imgOpacity" type="range" min="0" max="100" value="35" />
@@ -324,21 +317,6 @@
     ]);
   });
 
-  // ====== Draw control ======
-  const Draw = new MapboxDraw({
-    displayControlsDefault:false,
-    controls:{ polygon:true, trash:true },
-    defaultMode:'simple_select',
-    styles:[
-      {id:'gl-draw-polygon-fill-inactive',type:'fill',filter:['all',['==','active','false'],['==','$type','Polygon']],paint:{'fill-color':'#ff9800','fill-opacity':0.08}},
-      {id:'gl-draw-polygon-stroke-inactive',type:'line',filter:['all',['==','active','false'],['==','$type','Polygon']],paint:{'line-color':'#ff9800','line-width':2}},
-      {id:'gl-draw-polygon-fill-active',type:'fill',filter:['all',['==','active','true'],['==','$type','Polygon']],paint:{'fill-color':'#ff9800','fill-opacity':0.12}},
-      {id:'gl-draw-polygon-stroke-active',type:'line',filter:['all',['==','active','true'],['==','$type','Polygon']],paint:{'line-color':'#ff9800','line-width':2}},
-      {id:'gl-draw-point-active',type:'circle',filter:['all',['==','$type','Point'],['==','meta','vertex'],['==','active','true']],paint:{'circle-radius':5,'circle-color':'#1e90ff','circle-stroke-color':'#fff','circle-stroke-width':2}}
-    ]
-  });
-  map.addControl(Draw, 'top-right');
-
   // ====== State ======
   let subdistrictPolys=null, subdBBoxes=[];
   let thBorderPolys=null, thBBoxes=[];
@@ -350,8 +328,8 @@
   // Image
   const MGL_IMAGE_SRC_ID='warpedImageSrc', MGL_IMAGE_LYR_ID='warpedImageLayer';
   let imageBlobUrl=null;
-  let cornerMarkers=[];       // มุม 4 ด้าน (ใช้ทั้งบิด/เลื่อนจากมุม)
-  let centerMoveMarker=null;  // หมุดกลาง (เลื่อนรูป)
+  let cornerMarkers=[];       // มุม 4 ด้าน
+  let centerMoveMarker=null;  // หมุดกลาง
   let distortEditing=false, moveEditing=false, cornerMoveEditing=false;
 
   // Frame
@@ -445,7 +423,7 @@
     pop.on('open',()=>{
       setSelected(p.id,{center:false,open:false});
       const btn=document.getElementById(`del-${p.id}`);
-      if(btn) btn.addEventListener('click',()=>removePointById(p.id));
+      if(btn) btn.addEventListener('click',(ev)=>{ ev.preventDefault(); ev.stopPropagation(); removePointById(p.id); });
     });
     return m;
   }
@@ -549,11 +527,23 @@
     const btn=$('toggleAddModeBtn'), lbl=$('toggleAddModeLabel');
     btn.setAttribute('aria-pressed', addMode?'true':'false');
     lbl.textContent = addMode ? 'ปิดการเพิ่มจุด' : 'เพิ่มจุดจากแผนที่';
-    if(addMode) toast('โหมดเพิ่ม: คลิกแผนที่เพื่อเพิ่มจุด (ยืนยันใน popup)');
+    if(addMode){ 
+      if(!thBorderPolys||!subdistrictPolys) toast('ยังโหลดขอบเขตไม่เสร็จ'); 
+      else toast('โหมดเพิ่ม: คลิกแผนที่เพื่อวางจุด แล้วกด “ยืนยัน” ใน popup');
+    }
   }
   $('toggleAddModeBtn').addEventListener('click',()=>setAddMode(!addMode));
+
+  // ป้องกันคลิกซ้อนกับ popup
+  function isClickInsidePopup(e){
+    const t = e.originalEvent?.target;
+    return !!(t && t.closest && t.closest('.maplibregl-popup'));
+  }
+
   map.on('click',(e)=>{
     if(!addMode) return;
+    if(isClickInsidePopup(e)) return; // กันคลิกจากปุ่มใน popup วิ่งมาถึง map
+
     if(tempAddMarker){ tempAddMarker.remove(); tempAddMarker=null; }
     const el=document.createElement('div'); el.className='pt-marker';
     tempAddMarker=new maplibregl.Marker({element:el}).setLngLat(e.lngLat).addTo(map);
@@ -562,7 +552,16 @@
                 <div style="margin-top:8px; text-align:center"><button class="btn" id="confirmAddBtn">ยืนยัน</button></div>`;
     const popup=new maplibregl.Popup({offset:12, closeOnClick:false}).setHTML(html);
     tempAddMarker.setPopup(popup).togglePopup();
-    popup.on('open',()=>{ const ok=$('confirmAddBtn'); if(ok){ ok.addEventListener('click',()=>{ addPointWithChecks(lat,lon); if(tempAddMarker){ tempAddMarker.remove(); tempAddMarker=null; }},{once:true}); }});
+    popup.on('open',()=>{
+      const ok=$('confirmAddBtn');
+      if(ok){
+        ok.addEventListener('click',(ev)=>{
+          ev.preventDefault(); ev.stopPropagation();
+          addPointWithChecks(lat,lon);
+          if(tempAddMarker){ tempAddMarker.remove(); tempAddMarker=null; }
+        }, {once:true});
+      }
+    });
   });
 
   // ====== Re-Join ======
@@ -667,7 +666,7 @@
     }
   }
 
-  // มุม 4 ด้าน (รองรับทั้งบิด / ปรับสัดส่วน / ย้ายทั้งภาพเมื่อกด Shift ตอนเริ่มลาก)
+  // มุม 4 ด้าน (โหมดบิด / ปรับสัดส่วน / ย้ายทั้งภาพเมื่อกด Shift ตอนเริ่มลาก)
   function buildCornerMarkers(coords4){
     destroyCornerMarkers();
     const prevs=new Array(4).fill(null);
@@ -679,8 +678,7 @@
       mk.on('dragstart',()=>{
         const p=mk.getLngLat();
         prevs[i]=[p.lng,p.lat];
-        // จับสถานะ Shift เมื่อเริ่มลาก
-        mk.__shiftOnStart = shiftPressed;
+        mk.__shiftOnStart = shiftPressed; // จำสถานะ Shift ตอนเริ่มลาก
       });
 
       mk.on('drag',()=>{
@@ -697,7 +695,7 @@
           return;
         }
 
-        // กำหนดเป้าหมายหลังล็อกแกน
+        // ล็อกแกนสำหรับปลายมุม
         let targetLng = p.lng;
         let targetLat = p.lat;
         if (axisLock === 'x') targetLat = prev[1]; // ขยับเฉพาะ X
@@ -759,22 +757,6 @@
     centerMoveMarker=mk;
   }
 
-  function polygonToRectCorners(feature){
-    if(!feature) return null;
-    const coords=feature.geometry.coordinates?.[0]||[]; const ring=coords.slice(0, coords.length-1);
-    if(ring.length===4){
-      const pts=ring.map(([x,y])=>({lng:x,lat:y}));
-      const sorted=pts.sort((a,b)=>a.lat===b.lat ? a.lng-b.lng : b.lat-a.lat);
-      const top2=sorted.slice(0,2).sort((a,b)=>a.lng-b.lng);
-      const bot2=sorted.slice(2,4).sort((a,b)=>a.lng-b.lng);
-      return [[top2[0].lng,top2[0].lat],[top2[1].lng,top2[1].lat],[bot2[1].lng,bot2[1].lat],[bot2[0].lng,bot2[0].lat]];
-    }else{
-      const [minX,minY,maxX,maxY]=turf.bbox(feature);
-      return [[minX,maxY],[maxX,maxY],[maxX,minY],[minX,minY]];
-    }
-  }
-  function getCurrentDrawPolygon(){ const feats=Draw.getAll(); if(!feats||!feats.features.length) return null; return feats.features.find(f=>f.geometry?.type==='Polygon')||null; }
-
   // Rubber box (ลากครอบ)
   function startBoxDrag(){
     if(boxActive) return;
@@ -794,30 +776,27 @@
   }
   function endBoxDrag(keep=false){
     boxActive=false; map.getCanvas().style.cursor=''; map.dragPan.enable();
+    if(!keep && map.getSource(BOX_SRC_ID)) map.getSource(ABOX_SRC_ID)?.setData({type:'FeatureCollection',features:[]}); // safe-guard (no-op if typo)
     if(!keep && map.getSource(BOX_SRC_ID)) map.getSource(BOX_SRC_ID).setData({type:'FeatureCollection',features:[]});
     if(!keep) boxCoords=null;
   }
   $('btnBoxDrag').addEventListener('click',()=>{ if(!boxActive){ startBoxDrag(); toast('ลากครอบเพื่อกำหนดกรอบ'); } else { endBoxDrag(false); toast('ยกเลิกลากครอบ'); } });
 
-  // Draw polygon buttons
-  $('btnDrawRect').addEventListener('click',()=>{ Draw.changeMode('draw_polygon'); toast('โหมดวาดกรอบ: คลิก 4 มุม แล้วดับเบิลคลิกเพื่อจบ'); });
-  $('btnDeleteRect').addEventListener('click',()=>{ Draw.deleteAll(); if(map.getSource(BOX_SRC_ID)) map.getSource(BOX_SRC_ID).setData({type:'FeatureCollection',features:[]}); boxCoords=null; toast('ลบกรอบแล้ว'); });
-
   // Opacity
   $('imgOpacity').addEventListener('input',()=>{ $('imgOpacityVal').textContent=`${$('imgOpacity').value}%`; const op=getOpacity01(); if(map.getLayer(MGL_IMAGE_LYR_ID)) map.setPaintProperty(MGL_IMAGE_LYR_ID,'raster-opacity',op); });
 
   // Load image
-  $('imgInput').addEventListener('change',(ev)=>{ const f=ev.target.files && ev.target.files[0]; if(!f) return; if(imageBlobUrl) URL.revokeObjectURL(imageBlobUrl); imageBlobUrl=URL.createObjectURL(f); toast('โหลดรูปแล้ว — วาดกรอบ/ลากครอบ แล้วกด “วางรูป”'); });
+  $('imgInput').addEventListener('change',(ev)=>{ const f=ev.target.files && ev.target.files[0]; if(!f) return; if(imageBlobUrl) URL.revokeObjectURL(imageBlobUrl); imageBlobUrl=URL.createObjectURL(f); toast('โหลดรูปแล้ว — ลากครอบ แล้วกด “วางรูป”'); });
 
-  // Place/update overlay (auto-clear frame/boxes)
+  // Place/update overlay (ใช้เฉพาะกรอบลากครอบ และลบกรอบอัตโนมัติหลังวางรูป)
   function placeOrUpdateOverlay(){
     if(!imageBlobUrl){ toast('โปรดเลือกไฟล์รูปก่อน'); return; }
-    let rect=null;
-    if(boxCoords && boxCoords.length>=4){ rect=[boxCoords[0],boxCoords[1],boxCoords[2],boxCoords[3]]; }
-    else{ const poly=getCurrentDrawPolygon(); if(!poly){ toast('โปรดกำหนดกรอบ (ลากครอบ หรือ วาดกรอบ) ก่อน'); return; } rect=polygonToRectCorners(poly); }
+    if(!(boxCoords && boxCoords.length>=4)){ toast('โปรด “ลากครอบ” ก่อน'); return; }
+    const rect=[boxCoords[0],boxCoords[1],boxCoords[2],boxCoords[3]];
     mglEnsureImageLayer(imageBlobUrl, rect);
     // ลบกรอบอัตโนมัติหลังวางรูป
-    Draw.deleteAll(); if(map.getSource(BOX_SRC_ID)) map.getSource(BOX_SRC_ID).setData({type:'FeatureCollection',features:[]}); boxCoords=null;
+    if(map.getSource(BOX_SRC_ID)) map.getSource(BOX_SRC_ID).setData({type:'FeatureCollection',features:[]}); 
+    boxCoords=null;
     destroyCornerMarkers(); destroyCenterMoveMarker(); clearImageFrame();
     distortEditing=false; moveEditing=false; cornerMoveEditing=false;
     $('btnDistortToggle').setAttribute('aria-pressed','false'); $('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
