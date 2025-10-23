@@ -28,6 +28,9 @@
     body{background:#0b0f1a;color:#f3f6fb}
 
     .app{display:grid;grid-template-columns:460px 1fr;grid-template-areas:"left right";gap:14px;height:100%;padding:14px;box-sizing:border-box}
+    /* PATCH: กัน map หายเพราะ container ไม่กินพื้นที่แนวตั้ง */
+    .app{height:100vh;}
+
     .panel-left{grid-area:left;min-width:0;position:relative}
     .panel-map{grid-area:right;position:relative}
     #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden;position:relative}
@@ -113,7 +116,7 @@
     .pt-marker{width:10px;height:10px;border-radius:50%;background:#003a8c;border:2px solid #fff;box-shadow:0 0 6px rgba(0,0,0,.4)}
     .pt-marker.selected{background:#e53935}
 
-    /* FIX: popup/marker ให้คลิกได้ชัด */
+    /* FIX: popup/marker ให้คลิกได้ */
     .maplibregl-popup, .maplibregl-marker { z-index: 9999 !important; pointer-events:auto; }
     .maplibregl-popup, .maplibregl-popup * { opacity: 1 !important; }
     .maplibregl-popup-content{ color:#0b1430; background:#fff; }
@@ -149,24 +152,10 @@
           <button class="btn btn-outline" id="rejoinBtn" style="margin-top:20px">Re-Join</button>
         </div>
         <div class="bar-right">
-          <button id="toggleAddModeBtn" class="toggle" aria-pressed="false" title="เพิ่มจุดจากแผนที่" style="margin-top:20px">
+          <!-- คงเหลือเฉพาะ toggle เพิ่มจุด -->
+          <button id="toggleAddModeBtn" class="toggle" aria-pressed="false" title="เพิ่มจุดจากแผนที่ (Toggle)" style="margin-top:20px">
             <span class="track"><span class="knob"></span></span>
             <span class="label" id="toggleAddModeLabel">เพิ่มจุดจากแผนที่</span>
-          </button>
-
-          <!-- กรอบลากครอบ + โหมดเลื่อนต่างๆ -->
-          <button id="btnBoxDrag" class="btn btn-outline" title="วาดกรอบแบบลากครอบ">ลากครอบ</button>
-          <button id="btnMoveImgToggle" class="toggle" aria-pressed="false" title="เลื่อนรูป (หมุดกลาง)">
-            <span class="track"><span class="knob"></span></span>
-            <span class="label" id="btnMoveImgLabel">เลื่อนรูป</span>
-          </button>
-          <button id="btnCornerMoveToggle" class="toggle" aria-pressed="false" title="เลื่อนทั้งภาพด้วยการลากมุม (ไม่บิด)">
-            <span class="track"><span class="knob"></span></span>
-            <span class="label" id="btnCornerMoveLabel">เลื่อนจากมุม</span>
-          </button>
-          <button id="btnDistortToggle" class="toggle" aria-pressed="false" title="บิด 4 มุม">
-            <span class="track"><span class="knob"></span></span>
-            <span class="label" id="btnDistortToggleLabel">เข้าโหมดบิด (4 มุม)</span>
           </button>
         </div>
       </div>
@@ -228,6 +217,7 @@
             • <b>บิด 4 มุม</b> = ลากหมุดมุมเพื่อปรับรูปทรง
           </div>
 
+          <!-- แถว 1: เลือกรูป + วาด/ลบกรอบ + วาง/ลบรูป -->
           <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <input id="imgInput" type="file" accept="image/*" title="เลือกไฟล์รูป"/>
             <button id="btnDrawRect" class="btn btn-outline" title="วาดกรอบ">วาดกรอบ</button>
@@ -236,6 +226,24 @@
             <button id="clearImgBtn" class="btn btn-danger" title="ลบรูป">ลบรูป</button>
           </div>
 
+          <!-- แถว 2: ปุ่มควบคุมรูป (ย้ายมาที่นี่) -->
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <button id="btnBoxDrag" class="btn btn-outline" title="วาดกรอบแบบลากครอบ (rubber box)">ลากครอบ</button>
+            <button id="btnMoveImgToggle" class="toggle" aria-pressed="false" title="เลื่อนรูป (หมุดกลาง)">
+              <span class="track"><span class="knob"></span></span>
+              <span class="label" id="btnMoveImgLabel">เลื่อนรูป</span>
+            </button>
+            <button id="btnCornerMoveToggle" class="toggle" aria-pressed="false" title="เลื่อนทั้งภาพด้วยการลากมุม (ไม่บิด)">
+              <span class="track"><span class="knob"></span></span>
+              <span class="label" id="btnCornerMoveLabel">เลื่อนจากมุม</span>
+            </button>
+            <button id="btnDistortToggle" class="toggle" aria-pressed="false" title="เข้า/ออกโหมดบิด (ลากหมุด 4 มุม)">
+              <span class="track"><span class="knob"></span></span>
+              <span class="label" id="btnDistortToggleLabel">เข้าโหมดบิด (4 มุม)</span>
+            </button>
+          </div>
+
+          <!-- แถว 3: Opacity -->
           <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
             <label class="small" for="imgOpacity">โปร่งใส (%)</label>
             <input id="imgOpacity" type="range" min="0" max="100" value="35" />
@@ -813,10 +821,6 @@
   }
   // already called above in map.on('load')
 
-  // ====== Helpers to show subdistrict layer if points exist ======
-  // updateSubdistrictVisibility called in refreshMarkers()
-
-  // ====== Loaders done ======
   </script>
 </body>
 </html>
