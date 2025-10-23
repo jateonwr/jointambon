@@ -34,7 +34,7 @@
 
     /* Layer Toggle */
     .layer-toggle{
-      position:absolute;top:10px;left:10px;z-index:10;
+      position:absolute;top:10px;left:10px;z-index:50; /* ต่ำกว่าป๊อปอัป */
       background:#0e1526cc;border:1px solid #243056;border-radius:10px;
       color:#dbe6ff;padding:8px 10px;font-size:13px;backdrop-filter:blur(4px)
     }
@@ -60,7 +60,7 @@
     .divider{height:2px;background:#243056;margin:10px 0}
     .small{font-size:13px;color:#9fb0d0}
     .note{font-size:13px;color:#a9b0c0}
-    .toast{position:fixed;right:16px;bottom:16px;background:#111a2e;border:1px solid #233056;padding:10px 14px;border-radius:10px;color:#dbe6ff;box-shadow:0 6px 24px rgba(0,0,0,.35);z-index:9999}
+    .toast{position:fixed;right:16px;bottom:16px;background:#111a2e;border:1px solid #233056;padding:10px 14px;border-radius:10px;color:#dbe6ff;box-shadow:0 6px 24px rgba(0,0,0,.35);z-index:99999}
 
     .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 8px}
     .bar-left{display:flex;align-items:center;gap:10px}
@@ -112,6 +112,17 @@
     /* สไตล์ Marker จุด */
     .pt-marker{width:10px;height:10px;border-radius:50%;background:#003a8c;border:2px solid #fff;box-shadow:0 0 6px rgba(0,0,0,.4)}
     .pt-marker.selected{background:#e53935}
+
+    /* ---------- PATCH: บังคับ popup/marker ลอยเหนือแผนที่ ---------- */
+    .maplibregl-popup,
+    .maplibregl-marker {
+      z-index: 9999 !important;
+      pointer-events: auto;
+    }
+    #map, .maplibregl-map, .maplibregl-canvas-container, .maplibregl-canvas {
+      position: relative;
+      z-index: 0;
+    }
   </style>
 
   <script>
@@ -352,6 +363,33 @@
   let cornerMarkers=[]; // maplibre HTML markers draggable
   let distortEditing=false;
 
+  // ---- PATCH: เส้นกรอบรอบภาพ (frame) ----
+  const FRAME_SRC_ID = 'imageFrameSrc';
+  const FRAME_LYR_ID = 'imageFrameLayer';
+
+  function updateImageFrame(coords4) {
+    if (!coords4 || coords4.length !== 4) return;
+    const ring = [...coords4, coords4[0]]; // ปิดรูปรอบ
+    const fc = { type:'FeatureCollection', features:[{
+      type:'Feature',
+      geometry:{ type:'LineString', coordinates:ring }
+    }]};
+    if (!map.getSource(FRAME_SRC_ID)) {
+      map.addSource(FRAME_SRC_ID, { type:'geojson', data:fc });
+      map.addLayer({
+        id: FRAME_LYR_ID, type:'line', source: FRAME_SRC_ID,
+        paint: { 'line-color':'#1e90ff', 'line-width':2, 'line-dasharray':[2,2] }
+      });
+      ensureLayerToggleItem(FRAME_LYR_ID, 'กรอบรูป (Frame)');
+    } else {
+      map.getSource(FRAME_SRC_ID).setData(fc);
+    }
+  }
+  function clearImageFrame() {
+    if (map.getLayer(FRAME_LYR_ID)) map.removeLayer(FRAME_LYR_ID);
+    if (map.getSource(FRAME_SRC_ID)) map.removeSource(FRAME_SRC_ID);
+  }
+
   function getOpacity01(){ const v=parseInt($('imgOpacity').value||'35',10); return Math.min(1,Math.max(0,v/100)); }
   function syncOpacityLabel(){ $('imgOpacityVal').textContent = `${$('imgOpacity').value}%`; }
   syncOpacityLabel();
@@ -366,7 +404,7 @@
     subdBBoxes=subdistrictPolys.features.map(f=>turf.bbox(f));
 
     map.addSource('subdistricts',{type:'geojson',data:subdistrictPolys});
-    // วางเหนือ OSM (ไม่ใส่ beforeId ให้ไปบน OSM อัตโนมัติ)
+    // วางเหนือ OSM
     map.addLayer({id:'subdistricts-line',type:'line',source:'subdistricts',
       paint:{'line-color':'#2f3646','line-width':1.2,'line-opacity':0.9}
     });
@@ -408,7 +446,7 @@
       <div style="margin-top:10px; text-align:center">
         <button id="del-${p.id}" class="btn-danger-solid" style="font-size:12px;padding:6px 10px">ลบ</button>
       </div>`;
-    const pop=new maplibregl.Popup({offset:12, closeButton:true}).setHTML(popupHtml);
+    const pop=new maplibregl.Popup({offset:12, closeButton:true, closeOnClick:false}).setHTML(popupHtml); /* PATCH: closeOnClick=false */
     m.setPopup(pop);
     m.getElement().addEventListener('click',()=>setSelected(p.id,{center:false,open:true,from:'map'}));
     pop.on('open',()=>{
@@ -554,7 +592,7 @@
     const lat=e.lngLat.lat, lon=e.lngLat.lng;
     const html=`<div><b>ตำแหน่ง</b><br><b>lat</b>: ${lat.toFixed(6)}<br><b>lon</b>: ${lon.toFixed(6)}</div>
                 <div style="margin-top:8px; text-align:center"><button class="btn" id="confirmAddBtn">ยืนยัน</button></div>`;
-    const popup=new maplibregl.Popup({offset:12}).setHTML(html);
+    const popup=new maplibregl.Popup({offset:12, closeOnClick:false}).setHTML(html); /* PATCH: closeOnClick=false */
     tempAddMarker.setPopup(popup).togglePopup();
     popup.on('open',()=>{
       const ok=document.getElementById('confirmAddBtn');
@@ -691,9 +729,11 @@
       mk.on('drag', ()=>{
         coords4[i]=[mk.getLngLat().lng, mk.getLngLat().lat];
         mglEnsureImageLayer(imageBlobUrl, coords4);
+        updateImageFrame(coords4); /* PATCH: อัปเดตเส้นกรอบตามมุม */
       });
       cornerMarkers.push(mk);
     });
+    updateImageFrame(coords4); /* PATCH: วาดเส้นกรอบครั้งแรก */
   }
 
   function polygonToRectCorners(feature){
@@ -758,6 +798,7 @@
     mglEnsureImageLayer(imageBlobUrl, rect);
 
     destroyCornerMarkers();
+    clearImageFrame(); /* PATCH: เคลียร์กรอบเมื่อจบการวาง */
     distortEditing=false;
     document.getElementById('btnDistortToggle').setAttribute('aria-pressed','false');
     document.getElementById('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
@@ -769,6 +810,7 @@
   document.getElementById('clearImgBtn').addEventListener('click', ()=>{
     mglClearImage();
     destroyCornerMarkers();
+    clearImageFrame(); /* PATCH: เคลียร์กรอบ */
     if(imageBlobUrl){ URL.revokeObjectURL(imageBlobUrl); imageBlobUrl=null; }
     distortEditing=false;
     document.getElementById('btnDistortToggle').setAttribute('aria-pressed','false');
@@ -784,12 +826,14 @@
 
     if(!distortEditing){
       buildCornerMarkers(coords.map(([lng,lat])=>[lng,lat]));
+      updateImageFrame(coords); /* PATCH: แสดงกรอบเมื่อเข้าโหมด */
       document.getElementById('btnDistortToggle').setAttribute('aria-pressed','true');
       document.getElementById('btnDistortToggleLabel').textContent='ออกโหมดบิด (4 มุม)';
       distortEditing=true;
       toast('เข้าโหมดบิด: ลากหมุดมุมเพื่อปรับรูป');
     }else{
       destroyCornerMarkers();
+      clearImageFrame(); /* PATCH: เอากรอบออกเมื่อออกโหมด */
       document.getElementById('btnDistortToggle').setAttribute('aria-pressed','false');
       document.getElementById('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
       distortEditing=false;
