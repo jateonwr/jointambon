@@ -28,9 +28,18 @@
     body{background:#0b0f1a;color:#f3f6fb}
 
     .app{display:grid;grid-template-columns:460px 1fr;grid-template-areas:"left right";gap:14px;height:100%;padding:14px;box-sizing:border-box}
-    .panel-left{grid-area:left;min-width:0}
-    .panel-map{grid-area:right}
-    #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden}
+    .panel-left{grid-area:left;min-width:0;position:relative}
+    .panel-map{grid-area:right;position:relative}
+    #map{width:100%;height:100%;min-height:560px;border-radius:14px;overflow:hidden;position:relative}
+
+    /* Layer Toggle */
+    .layer-toggle{
+      position:absolute;top:10px;left:10px;z-index:10;
+      background:#0e1526cc;border:1px solid #243056;border-radius:10px;
+      color:#dbe6ff;padding:8px 10px;font-size:13px;backdrop-filter:blur(4px)
+    }
+    .layer-toggle label{display:block;white-space:nowrap;margin:4px 0;cursor:pointer}
+    .layer-toggle .title{font-size:12px;color:#9fb0d0;margin-bottom:4px}
 
     h1{font-size:18px;margin:.2rem 0 10px;font-weight:400}
     h2{font-size:15px;margin:16px 0 8px;color:#a9b0c0;font-weight:400;letter-spacing:.2px}
@@ -109,9 +118,6 @@
     const FIELD_TAMBON='tam_th', FIELD_AMPHOE='amp_th', FIELD_CHANGWAT='pro_th', FIELD_TAMCODE='tam_code';
     const SUBD_PATH='subdistricts.geojson', TH_BORDER_PATH='th_boundary.geojson';
 
-    const DEFAULT_POINT_COLOR='#003a8c';
-    const SELECTED_POINT_COLOR='#e53935';
-
     const $ = (id) => document.getElementById(id);
     function toast(msg, ms=2200){ 
       let el=$('toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
@@ -121,13 +127,16 @@
     function toNumberMaybe(v){ if (typeof v==='number') return v; if (typeof v==='string'){ const s=v.trim().replace(/,/g,'.'); const f=parseFloat(s); return isNaN(f)?null:f;} return null; }
     function download(filename, data, mime='application/octet-stream'){ const blob=new Blob([data],{type:mime}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url); }
 
-    // โปร่งใส ไม่มี base layer (เราจะใส่ OSM raster เอง)
-    const EMPTY_STYLE = {"version":8,"sources":{},"layers":[{"id":"bg","type":"background","paint":{"background-color":"#0b0f1a"}}]};
+    // สไตล์พื้นหลังโปร่งใส (OSM จะอยู่ใต้สุด)
+    const EMPTY_STYLE = {"version":8,"sources":{},"layers":[{"id":"bg","type":"background","paint":{"background-color":"rgba(0,0,0,0)"}}]};
   </script>
 </head>
 <body>
   <div class="app">
-    <div id="map" class="panel panel-map"></div>
+    <div id="map" class="panel panel-map">
+      <!-- Layer Toggle UI -->
+      <div id="layerToggle" class="layer-toggle" style="display:none"></div>
+    </div>
 
     <div class="panel panel-left">
       <h1>เครื่องมือระบุตำบล อำเภอ จังหวัด จากข้อมูลพิกัดทางภูมิศาสตร์</h1>
@@ -265,15 +274,54 @@
   });
   map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-right');
 
-  // ใส่ OSM (raster) เป็น base
+  // ====== Layer Toggle helper ======
+  const layerToggleEl = document.getElementById('layerToggle');
+  function buildLayerToggle(items){
+    layerToggleEl.style.display = 'block';
+    layerToggleEl.innerHTML = `
+      <div class="title">Layers</div>
+      ${items.map(it=>`<label><input type="checkbox" data-lyr="${it.id}" ${it.visible!==false?'checked':''}> ${it.name}</label>`).join('')}
+    `;
+    layerToggleEl.querySelectorAll('input[data-lyr]').forEach(chk=>{
+      chk.addEventListener('change',()=>{
+        const id=chk.dataset.lyr;
+        const visible = chk.checked ? 'visible' : 'none';
+        if(map.getLayer(id)) map.setLayoutProperty(id,'visibility',visible);
+      });
+    });
+  }
+  // เพิ่ม/อัปเดต checkbox แบบไดนามิก (เช่นตอนวางรูป)
+  function ensureLayerToggleItem(id, name){
+    if(!layerToggleEl.querySelector(`input[data-lyr="${id}"]`)){
+      const wrap=document.createElement('label');
+      wrap.innerHTML=`<input type="checkbox" data-lyr="${id}" checked> ${name}`;
+      wrap.style.display='block';
+      layerToggleEl.appendChild(wrap);
+      const chk=wrap.querySelector('input');
+      chk.addEventListener('change',()=>{
+        const vis = chk.checked?'visible':'none';
+        if(map.getLayer(id)) map.setLayoutProperty(id,'visibility',vis);
+      });
+    }
+  }
+
+  // ใส่ OSM (raster) เป็น base — อยู่ใต้สุด (beforeId = 'bg')
   map.on('load', () => {
     map.addSource('osm', {
       type: 'raster',
       tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
       tileSize: 256,
-      maxzoom: 19
+      maxzoom: 19,
+      attribution: '© OpenStreetMap contributors'
     });
-    map.addLayer({ id:'osm', type:'raster', source:'osm' });
+    map.addLayer({ id:'osm', type:'raster', source:'osm' }, 'bg'); // ใต้สุด
+
+    // สร้าง toggle พื้นฐานไว้ก่อน
+    buildLayerToggle([
+      {id:'osm', name:'OSM Base', visible:true},
+      {id:'subdistricts-line', name:'ขอบเขตตำบล', visible:true},
+      {id:'th-border-line', name:'ขอบเขตประเทศ', visible:true}
+    ]);
   });
 
   // ====== Draw control (polygon สำหรับกรอบ) ======
@@ -282,7 +330,6 @@
     controls: { polygon: true, trash: true },
     defaultMode: 'simple_select',
     styles: [
-      // เส้น/จุดของ polygon
       { id:'gl-draw-polygon-fill-inactive', type:'fill', filter:['all',['==','active','false'],['==','$type','Polygon']], paint:{'fill-color':'#ff9800','fill-opacity':0.08}},
       { id:'gl-draw-polygon-stroke-inactive', type:'line', filter:['all',['==','active','false'],['==','$type','Polygon']], paint:{'line-color':'#ff9800','line-width':2}},
       { id:'gl-draw-polygon-fill-active', type:'fill', filter:['all',['==','active','true'],['==','$type','Polygon']], paint:{'fill-color':'#ff9800','fill-opacity':0.12}},
@@ -317,17 +364,24 @@
     const polyFeats=gj.features.filter(f=>{ const g=f&&f.geometry; return g&&(g.type==='Polygon'||g.type==='MultiPolygon'); });
     subdistrictPolys={type:'FeatureCollection',features:polyFeats};
     subdBBoxes=subdistrictPolys.features.map(f=>turf.bbox(f));
-    // แสดงเส้นขอบตำบล (บางเบา)
+
     map.addSource('subdistricts',{type:'geojson',data:subdistrictPolys});
-    map.addLayer({id:'subdistricts-line',type:'line',source:'subdistricts',paint:{'line-color':'#2f3646','line-width':1.2,'line-opacity':0.8}}, 'osm');
+    // วางเหนือ OSM (ไม่ใส่ beforeId ให้ไปบน OSM อัตโนมัติ)
+    map.addLayer({id:'subdistricts-line',type:'line',source:'subdistricts',
+      paint:{'line-color':'#2f3646','line-width':1.2,'line-opacity':0.9}
+    });
   }
   async function loadThailandBorder(path=TH_BORDER_PATH){
     const res=await fetch(path,{cache:'no-store'}); if(!res.ok) throw new Error('th_border HTTP '+res.status);
     const gj=await res.json();
     if(!gj||gj.type!=='FeatureCollection'||!Array.isArray(gj.features)||!gj.features.length) throw new Error('th_border invalid');
     thBorderPolys=gj; thBBoxes=thBorderPolys.features.map(f=>turf.bbox(f));
+
     map.addSource('th-border',{type:'geojson',data:thBorderPolys});
-    map.addLayer({id:'th-border-line',type:'line',source:'th-border',paint:{'line-color':'#000','line-width':2,'line-opacity':0.9}}, 'subdistricts-line');
+    // วางเหนือขอบเขตตำบล
+    map.addLayer({id:'th-border-line',type:'line',source:'th-border',
+      paint:{'line-color':'#000','line-width':2,'line-opacity':0.95}
+    });
   }
 
   map.on('load', async ()=>{
@@ -366,7 +420,6 @@
   }
 
   function refreshMarkers(){
-    // ลบ marker เก่าทั้งหมด (ง่ายสุด)
     points.forEach(p=>{ if(p.marker){ p.marker.remove(); p.marker=null; } });
     points.forEach(p=>{
       const sel=(p.id===selectedId);
@@ -381,7 +434,7 @@
     const p=points.find(pp=>pp.id===id); if(!p) return;
     selectedId=id;
     document.querySelectorAll('#pointsTableBody tr[data-id]').forEach(tr=>tr.classList.toggle('is-selected', Number(tr.dataset.id)===selectedId));
-    refreshMarkers(); // เพื่ออัปเดตคลาส selected (วิธีง่าย)
+    refreshMarkers(); // อัปเดต selected style ง่ายสุด
     if(center){ map.easeTo({center:[p.lon,p.lat], zoom: Math.max(map.getZoom(), 8)}); if(open && p.marker){ p.marker.togglePopup(); } }
   }
 
@@ -474,25 +527,25 @@
       inp.addEventListener('change',()=>updatePointCoord(Number(inp.getAttribute('data-edit-lon')), null, toNumberMaybe(inp.value)));
     });
   }
-  $('pointsTableBody').addEventListener('click',(ev)=>{
+  document.getElementById('pointsTableBody').addEventListener('click',(ev)=>{
     if(ev.target.closest('button, input')) return;
     const row=ev.target.closest('tr[data-id]'); if(!row) return;
     setSelected(Number(row.dataset.id), {center:true, open:true, from:'table'});
   });
-  $('addNewRowBtn').addEventListener('click',()=>{
-    const lat=toNumberMaybe($('newLat').value), lon=toNumberMaybe($('newLon').value);
-    addPointWithChecks(lat,lon); $('newLat').value=''; $('newLon').value='';
+  document.getElementById('addNewRowBtn').addEventListener('click',()=>{
+    const lat=toNumberMaybe(document.getElementById('newLat').value), lon=toNumberMaybe(document.getElementById('newLon').value);
+    addPointWithChecks(lat,lon); document.getElementById('newLat').value=''; document.getElementById('newLon').value='';
   });
 
   // ====== Add mode by clicking map ======
   function setAddMode(on){
     addMode=!!on;
-    const btn=$('toggleAddModeBtn'), lbl=$('toggleAddModeLabel');
+    const btn=document.getElementById('toggleAddModeBtn'), lbl=document.getElementById('toggleAddModeLabel');
     btn.setAttribute('aria-pressed', addMode?'true':'false');
     lbl.textContent = addMode ? 'ปิดการเพิ่มจุด' : 'เพิ่มจุดจากแผนที่';
     if(addMode) toast('โหมดเพิ่ม: คลิกแผนที่เพื่อเพิ่มจุด (ยืนยันใน popup)');
   }
-  $('toggleAddModeBtn').addEventListener('click',()=>setAddMode(!addMode));
+  document.getElementById('toggleAddModeBtn').addEventListener('click',()=>setAddMode(!addMode));
   map.on('click',(e)=>{
     if(!addMode) return;
     if(tempAddMarker){ tempAddMarker.remove(); tempAddMarker=null; }
@@ -510,7 +563,7 @@
   });
 
   // ====== Re-Join ======
-  $('rejoinBtn').addEventListener('click',()=>{
+  document.getElementById('rejoinBtn').addEventListener('click',()=>{
     if(!subdistrictPolys){ toast('ยังไม่มีขอบเขต'); return; }
     let hit=0,miss=0;
     points.forEach(p=>{
@@ -530,25 +583,25 @@
   });
 
   // ====== Clear all points (modal) ======
-  const modal=$('confirmModal'), btnConfirm=$('confirmClearBtn'), btnCancel=$('cancelClearBtn');
+  const modal=document.getElementById('confirmModal'), btnConfirm=document.getElementById('confirmClearBtn'), btnCancel=document.getElementById('cancelClearBtn');
   let lastFocusedEl=null;
   function openConfirm(){ lastFocusedEl=document.activeElement; modal.style.display='flex'; btnCancel.focus(); document.body.style.overflow='hidden'; }
   function closeConfirm(){ modal.style.display='none'; document.body.style.overflow=''; lastFocusedEl&&lastFocusedEl.focus&&lastFocusedEl.focus(); }
-  $('clearPointsBtn').addEventListener('click', openConfirm);
+  document.getElementById('clearPointsBtn').addEventListener('click', openConfirm);
   modal.addEventListener('click',(e)=>{ if(e.target===modal) closeConfirm(); });
   document.addEventListener('keydown',(e)=>{ if(modal.style.display==='flex'){ if(e.key==='Escape'){ e.preventDefault(); closeConfirm(); } else if(e.key==='Enter'){ e.preventDefault(); btnConfirm.click(); } }});
   btnCancel.addEventListener('click', closeConfirm);
   btnConfirm.addEventListener('click',()=>{ points.forEach(p=>p.marker&&p.marker.remove()); points=[]; selectedId=null; refreshMarkers(); toast('ล้างจุดทั้งหมดแล้ว'); closeConfirm(); });
 
   // ====== Excel upload ======
-  $('excelInput')?.addEventListener('change', async (ev)=>{
+  document.getElementById('excelInput')?.addEventListener('change', async (ev)=>{
     const file=ev.target.files && ev.target.files[0]; if(!file) return;
     try{
       const buf=await file.arrayBuffer();
       const wb=XLSX.read(buf,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true});
-      const hasHeader=$('hasHeader').checked;
+      const hasHeader=document.getElementById('hasHeader').checked;
       let added=0,skipped=0;
       rows.forEach((r,i)=>{
         if(!Array.isArray(r)||r.length<2) return;
@@ -557,7 +610,7 @@
         const before=points.length; addPointWithChecks(lat,lon);
         if(points.length>before) added++; else skipped++;
       });
-      $('excelPreview').textContent=`เพิ่มจากไฟล์: ${added.toLocaleString()} จุด (ข้าม ${skipped.toLocaleString()} จุด)`;
+      document.getElementById('excelPreview').textContent=`เพิ่มจากไฟล์: ${added.toLocaleString()} จุด (ข้าม ${skipped.toLocaleString()} จุด)`;
       toast(`เพิ่มจุดจากไฟล์: ${added.toLocaleString()} จุด, ข้าม ${skipped.toLocaleString()} จุด`);
     }catch(err){ console.error(err); toast('อ่านไฟล์ล้มเหลว: ' + (err?.message||err)); }
   });
@@ -578,12 +631,12 @@
     });
     return rows;
   }
-  $('exportCsvBtn').addEventListener('click',()=>{
+  document.getElementById('exportCsvBtn').addEventListener('click',()=>{
     const rows=exportCollectRows();
     const csv=rows.map(r=>r.map(v=>{const s=(v==null)?'':String(v); return s.includes(',')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
     download('points_joined.csv', csv, 'text/csv');
   });
-  $('exportXlsxBtn').addEventListener('click',()=>{
+  document.getElementById('exportXlsxBtn').addEventListener('click',()=>{
     const rows=exportCollectRows();
     const ws=XLSX.utils.aoa_to_sheet(rows);
     const wb=XLSX.utils.book_new();
@@ -591,7 +644,7 @@
     const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
     download('points_joined.xlsx', out, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   });
-  $('exportGeojsonBtn').addEventListener('click',()=>{
+  document.getElementById('exportGeojsonBtn').addEventListener('click',()=>{
     const rows=exportCollectRows();
     const feats=rows.slice(1).map(r=>{
       const orderStr=r[0]||null;
@@ -615,6 +668,7 @@
     if (!map.getSource(MGL_IMAGE_SRC_ID)) {
       map.addSource(MGL_IMAGE_SRC_ID, { type:'image', url:imageUrl, coordinates:coords4 });
       map.addLayer({ id:MGL_IMAGE_LYR_ID, type:'raster', source:MGL_IMAGE_SRC_ID, paint:{'raster-opacity':opacity} });
+      ensureLayerToggleItem(MGL_IMAGE_LYR_ID, 'แนบรูป (Image)');
     } else {
       const src = map.getSource(MGL_IMAGE_SRC_ID);
       if (src && src.updateImage) src.updateImage({ url:imageUrl, coordinates:coords4 });
@@ -643,15 +697,12 @@
   }
 
   function polygonToRectCorners(feature){
-    // รับ polygon ของ Draw -> ถ้า 4 จุด ใช้ตามนั้น (NW,NE,SE,SW) โดยประมาณ
-    // ถ้ามากกว่า/น้อยกว่า 4 จุด ใช้ bbox สร้างสี่เหลี่ยม
     if(!feature) return null;
     const coords=feature.geometry.coordinates?.[0]||[];
     const ring=coords.slice(0, coords.length-1); // ตัดจุดปิดท้าย
     let rect=null;
 
     if(ring.length===4){
-      // จัดลำดับเป็น NW, NE, SE, SW
       const pts=ring.map(([x,y])=>({lng:x,lat:y}));
       const sorted=pts.sort((a,b)=>a.lat===b.lat ? a.lng-b.lng : b.lat-a.lat); // บน->ล่าง
       const top2=sorted.slice(0,2).sort((a,b)=>a.lng-b.lng);
@@ -668,15 +719,14 @@
   function getCurrentDrawPolygon(){
     const feats=Draw.getAll();
     if(!feats || !feats.features.length) return null;
-    // ใช้ feature แรกที่เป็น Polygon
     return feats.features.find(f=>f.geometry?.type==='Polygon') || null;
   }
 
-  $('btnDrawRect').addEventListener('click', ()=>{
+  document.getElementById('btnDrawRect').addEventListener('click', ()=>{
     Draw.changeMode('draw_polygon');
     toast('โหมดวาดกรอบ: คลิก 4 มุม แล้วดับเบิลคลิกเพื่อจบ');
   });
-  $('btnDeleteRect').addEventListener('click', ()=>{
+  document.getElementById('btnDeleteRect').addEventListener('click', ()=>{
     const feats=Draw.getAll();
     if(feats.features.length){
       feats.features.forEach(f=>Draw.delete(f.id));
@@ -686,13 +736,13 @@
     }
   });
 
-  $('imgOpacity').addEventListener('input', ()=>{
-    syncOpacityLabel();
+  document.getElementById('imgOpacity').addEventListener('input', ()=>{
+    document.getElementById('imgOpacityVal').textContent = `${document.getElementById('imgOpacity').value}%`;
     const op=getOpacity01();
     if (map.getLayer(MGL_IMAGE_LYR_ID)) map.setPaintProperty(MGL_IMAGE_LYR_ID, 'raster-opacity', op);
   });
 
-  $('imgInput').addEventListener('change',(ev)=>{
+  document.getElementById('imgInput').addEventListener('change',(ev)=>{
     const f=ev.target.files && ev.target.files[0]; if(!f) return;
     if(imageBlobUrl) URL.revokeObjectURL(imageBlobUrl);
     imageBlobUrl = URL.createObjectURL(f);
@@ -707,27 +757,26 @@
     const rect=polygonToRectCorners(poly);
     mglEnsureImageLayer(imageBlobUrl, rect);
 
-    // ออกจากโหมดบิด และเอาหมุดออกก่อน
     destroyCornerMarkers();
     distortEditing=false;
-    $('btnDistortToggle').setAttribute('aria-pressed','false');
-    $('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
+    document.getElementById('btnDistortToggle').setAttribute('aria-pressed','false');
+    document.getElementById('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
 
     toast('วาง/อัปเดตรูปสำเร็จ');
   }
-  $('useRectBtn').addEventListener('click', placeOrUpdateOverlay);
+  document.getElementById('useRectBtn').addEventListener('click', placeOrUpdateOverlay);
 
-  $('clearImgBtn').addEventListener('click', ()=>{
+  document.getElementById('clearImgBtn').addEventListener('click', ()=>{
     mglClearImage();
     destroyCornerMarkers();
     if(imageBlobUrl){ URL.revokeObjectURL(imageBlobUrl); imageBlobUrl=null; }
     distortEditing=false;
-    $('btnDistortToggle').setAttribute('aria-pressed','false');
-    $('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
+    document.getElementById('btnDistortToggle').setAttribute('aria-pressed','false');
+    document.getElementById('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
     toast('ลบรูปแล้ว');
   });
 
-  $('btnDistortToggle').addEventListener('click', ()=>{
+  document.getElementById('btnDistortToggle').addEventListener('click', ()=>{
     if(!map.getSource(MGL_IMAGE_SRC_ID)){ toast('ยังไม่มีรูป — กด “วางรูป” ก่อน'); return; }
     const src=map.getSource(MGL_IMAGE_SRC_ID);
     const coords = src.coordinates || src._coordinates;
@@ -735,23 +784,23 @@
 
     if(!distortEditing){
       buildCornerMarkers(coords.map(([lng,lat])=>[lng,lat]));
-      $('btnDistortToggle').setAttribute('aria-pressed','true');
-      $('btnDistortToggleLabel').textContent='ออกโหมดบิด (4 มุม)';
+      document.getElementById('btnDistortToggle').setAttribute('aria-pressed','true');
+      document.getElementById('btnDistortToggleLabel').textContent='ออกโหมดบิด (4 มุม)';
       distortEditing=true;
       toast('เข้าโหมดบิด: ลากหมุดมุมเพื่อปรับรูป');
     }else{
       destroyCornerMarkers();
-      $('btnDistortToggle').setAttribute('aria-pressed','false');
-      $('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
+      document.getElementById('btnDistortToggle').setAttribute('aria-pressed','false');
+      document.getElementById('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
       distortEditing=false;
       toast('ออกโหมดบิด');
     }
   });
 
-  // เมื่อแก้ polygon ใน Draw ให้ refresh “วางรูป” ได้ง่าย
-  map.on('draw.update', ()=>{ /* ผู้ใช้กด “วางรูป” เองเพื่อยึดตามโหมด */ });
-  map.on('draw.selectionchange', ()=>{ /* no-op */ });
+  // ====== Excel/Export handlers อยู่ข้างบนแล้ว ======
+  // (ไม่มีอะไรเพิ่ม)
 
+  // ====== โหลดขอบเขตหลัง map ready (อยู่ใน map.on('load') แล้ว) ======
   </script>
 </body>
 </html>
