@@ -16,11 +16,12 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-  <!-- MapLibre GL JS + bridge สำหรับซ้อนบน Leaflet -->
-  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <!-- NOTE: ใช้ไฟล์ในโฟลเดอร์ dist ให้ถูกพาธ -->
-  <script src="https://unpkg.com/maplibre-gl-leaflet@0.0.18/dist/leaflet-maplibre-gl.js"></script>
+  <!-- MapLibre GL JS (แนะนำ v3 เสถียรกับ bridge ปัจจุบัน) -->
+  <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
+  <!-- Bridge: maplibre-gl-leaflet (ต้องใช้ไฟล์ใน /dist/) -->
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl-leaflet@0.0.21/dist/leaflet-maplibre-gl.js"></script>
 
   <!-- Turf.js -->
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
@@ -115,7 +116,7 @@
   </style>
 
   <script>
-    /* สไตล์โปร่งใสสำหรับ MapLibre (ไม่มีแผนที่พื้นหลัง) */
+    /* สไตล์โปร่งใสสำหรับ MapLibre (ไม่มี map base) */
     const EMPTY_MGL_STYLE = {
       "version": 8,
       "name": "empty",
@@ -688,20 +689,24 @@
 
     // ===== MapLibre GL (ทับโปร่งใสบน Leaflet) =====
     let mglLayer = null, mglMap = null;
-    if (L && typeof L.maplibreGL === 'function') {
-      mglLayer = L.maplibreGL({ style: EMPTY_MGL_STYLE, interactive: false }).addTo(map);
-      mglMap   = mglLayer.getMap();
-      setTimeout(() => {
-        const canvas = mglMap.getCanvas();
-        if (canvas && canvas.parentElement) {
-          canvas.parentElement.style.zIndex = 620; // อยู่ระหว่าง imagePane(600) กับ pointsPane(650)
-          canvas.parentElement.style.pointerEvents = 'none'; // ให้คลิกที่ Leaflet
-        }
-      }, 500);
-    } else {
-      console.warn('maplibre-gl-leaflet not loaded; falling back to rect-only mode');
-      toast('MapLibre bridge ไม่พร้อมใช้งาน — ใช้โหมดสี่เหลี่ยมได้ตามปกติ');
+    function initMglBridge() {
+      if (window.L && window.maplibregl && typeof L.maplibreGL === 'function') {
+        mglLayer = L.maplibreGL({ style: EMPTY_MGL_STYLE, interactive: false }).addTo(map);
+        mglMap   = mglLayer.getMap();
+        setTimeout(() => {
+          const canvas = mglMap.getCanvas();
+          if (canvas && canvas.parentElement) {
+            canvas.parentElement.style.zIndex = 620; // อยู่ระหว่าง imagePane(600) กับ pointsPane(650)
+            canvas.parentElement.style.pointerEvents = 'none'; // ให้เมาส์ไปที่ Leaflet
+          }
+        }, 300);
+        console.log('MapLibre GL bridge loaded ✅', maplibregl.version);
+      } else {
+        console.warn('maplibre-gl-leaflet not loaded; falling back to rect-only mode');
+        toast('MapLibre bridge ไม่พร้อมใช้งาน — ใช้โหมดสี่เหลี่ยมได้ตามปกติ');
+      }
     }
+    initMglBridge();
 
     (async()=>{ try{ await loadSubdistricts(); await loadThailandBorder(); toast('โหลดขอบเขตสำเร็จ'); map.invalidateSize(); }catch(err){ console.error(err); toast('โหลดขอบเขตไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson / th_boundary.geojson'); } })();
 
