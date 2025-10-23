@@ -19,7 +19,8 @@
   <!-- MapLibre GL JS + bridge สำหรับซ้อนบน Leaflet -->
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="https://unpkg.com/maplibre-gl-leaflet@0.0.18/leaflet-maplibre-gl.js"></script>
+  <!-- NOTE: ใช้ไฟล์ในโฟลเดอร์ dist ให้ถูกพาธ -->
+  <script src="https://unpkg.com/maplibre-gl-leaflet@0.0.18/dist/leaflet-maplibre-gl.js"></script>
 
   <!-- Turf.js -->
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
@@ -685,19 +686,22 @@
     $('imgSection')?.addEventListener('toggle',()=>setTimeout(()=>map.invalidateSize(),120));
     window.addEventListener('resize',()=>setTimeout(()=>map.invalidateSize(),80));
 
-    // ===== MapLibre GL (ทับโปร่งใส) =====
-    let mglLayer = L.maplibreGL({
-      style: EMPTY_MGL_STYLE,
-      interactive: false
-    }).addTo(map);
-    let mglMap = mglLayer.getMap();
-    setTimeout(() => {
-      const canvas = mglMap.getCanvas();
-      if (canvas && canvas.parentElement) {
-        canvas.parentElement.style.zIndex = 620; // ระหว่าง imagePane(600) กับ pointsPane(650)
-        canvas.parentElement.style.pointerEvents = 'none';
-      }
-    }, 500);
+    // ===== MapLibre GL (ทับโปร่งใสบน Leaflet) =====
+    let mglLayer = null, mglMap = null;
+    if (L && typeof L.maplibreGL === 'function') {
+      mglLayer = L.maplibreGL({ style: EMPTY_MGL_STYLE, interactive: false }).addTo(map);
+      mglMap   = mglLayer.getMap();
+      setTimeout(() => {
+        const canvas = mglMap.getCanvas();
+        if (canvas && canvas.parentElement) {
+          canvas.parentElement.style.zIndex = 620; // อยู่ระหว่าง imagePane(600) กับ pointsPane(650)
+          canvas.parentElement.style.pointerEvents = 'none'; // ให้คลิกที่ Leaflet
+        }
+      }, 500);
+    } else {
+      console.warn('maplibre-gl-leaflet not loaded; falling back to rect-only mode');
+      toast('MapLibre bridge ไม่พร้อมใช้งาน — ใช้โหมดสี่เหลี่ยมได้ตามปกติ');
+    }
 
     (async()=>{ try{ await loadSubdistricts(); await loadThailandBorder(); toast('โหลดขอบเขตสำเร็จ'); map.invalidateSize(); }catch(err){ console.error(err); toast('โหลดขอบเขตไม่สำเร็จ: ตรวจไฟล์ subdistricts.geojson / th_boundary.geojson'); } })();
 
@@ -939,8 +943,6 @@
       $('btnDistortToggleLabel').textContent='เข้าโหมดบิด (4 มุม)';
       toast('ลบรูปออกจากแผนที่แล้ว');
     });
-
-    // opacity slider handled already above
 
     // Draw events (Rect live update เฉพาะ overlay แบบ Rect)
     map.on(L.Draw.Event.CREATED, function (e) {
